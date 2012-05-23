@@ -3,7 +3,6 @@
 #include <sdsl/rank_support.hpp>
 #include <sdsl/select_support.hpp>
 #include <sdsl/rrr_vector.hpp>
-#include <sdsl/rrr_vector_var.hpp>
 #include <sdsl/gap_vector.hpp>
 #include <sdsl/sd_vector.hpp>
 #include <sdsl/wt_huff.hpp>
@@ -50,10 +49,10 @@
 	#include "rosa.hpp"
 	typedef rosa<rrr_vector<>, rrr_vector<>::rank_1_type, rrr_vector<>::select_1_type > tIDX;
 #endif
-#ifdef ROSA_RRR_VAR
-	#define INDEX_SUF "rosa_rrr_var"
+#ifdef ROSA_RRR63
+	#define INDEX_SUF "rosa_rrr63"
 	#include "rosa.hpp"
-	typedef rosa<rrr_vector_var<63>, rrr_vector_var<63>::rank_1_type, rrr_vector_var<63>::select_1_type > tIDX;
+	typedef rosa<rrr_vector<63>, rrr_vector<63>::rank_1_type, rrr_vector<63>::select_1_type > tIDX;
 #endif
 #ifdef ROSA_GAP
 	#define INDEX_SUF "rosa_gap"

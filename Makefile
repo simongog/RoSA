@@ -10,7 +10,7 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_sd \
 	 ${BIN_DIR}/rosa_bv \
 	 ${BIN_DIR}/rosa_rrr \
-	 ${BIN_DIR}/rosa_rrr_var \
+	 ${BIN_DIR}/rosa_rrr63 \
 	 ${BIN_DIR}/rosa_gap \
 	 ${BIN_DIR}/fm_huff \
 	 ${BIN_DIR}/fm_huff_rrr \
@@ -50,9 +50,9 @@ ${BIN_DIR}/rosa_gap: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_rrr_var: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
+${BIN_DIR}/rosa_rrr63: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DROSA_RRR_VAR \
-	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_rrr_var \
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_rrr63 \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
