@@ -47,22 +47,22 @@
 #ifdef ROSA_RRR
 	#define INDEX_SUF "rosa_rrr"
 	#include "rosa.hpp"
-	typedef rosa<rrr_vector<>, rrr_vector<>::rank_1_type, rrr_vector<>::select_1_type > tIDX;
+	typedef rosa<rrr_vector<> > tIDX;
 #endif
 #ifdef ROSA_RRR63
 	#define INDEX_SUF "rosa_rrr63"
 	#include "rosa.hpp"
-	typedef rosa<rrr_vector<63>, rrr_vector<63>::rank_1_type, rrr_vector<63>::select_1_type > tIDX;
+	typedef rosa<rrr_vector<63> > tIDX;
 #endif
 #ifdef ROSA_GAP
 	#define INDEX_SUF "rosa_gap"
 	#include "rosa.hpp"
-	typedef rosa<gap_vector<>, gap_vector<>::rank_1_type, gap_vector<>::select_1_type > tIDX;
+	typedef rosa<gap_vector<> > tIDX;
 #endif	
 #ifndef INDEX_SUF
 	#define INDEX_SUF "rosa_sd"
 	#include "rosa.hpp"
-	typedef rosa<sd_vector<>, sd_vector<>::rank_1_type, sd_vector<>::select_1_type > tIDX;
+	typedef rosa<sd_vector<> > tIDX;
 #endif
 
 #include "rosa.hpp"

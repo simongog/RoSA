@@ -39,8 +39,8 @@ using std::ostream;
 
 // forward declaration of the rosa class with default template parameters
 template<class BitVector = bit_vector // for bl and bf
-	     ,class RankSupport = rank_support_v5<> // for bl and bf
-		 ,class SelectSupport = select_support_mcl<> // for bf
+	     ,class RankSupport = typename BitVector::rank_1_type // for bl and bf
+		 ,class SelectSupport = typename BitVector::select_1_type // for bf
 		 ,class WaveletTree = wt_huff<bit_vector, 
 		 							 rank_support_v5<>, 
 									 select_support_dummy, 
