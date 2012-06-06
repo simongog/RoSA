@@ -255,6 +255,7 @@ void display_usage(char* command)
     cout << " tmp_file_dir     : directory for the temporary files; default=./" << endl;
     cout << " output_dir       : directory for the constructed indexes; default=dirname(input_file)" << endl;
     cout << " delete_index_file: delete the generated index files; default=0" << endl;
+    cout << " verbose          : activate verbose mode." << endl;
     cout << endl;
     cout << "* if pattern_min_occ=pattern_max_occ=0 this restriction is not used in the " << endl;
     cout << "  pattern generation process." << endl;
@@ -274,9 +275,6 @@ int main(int argc, char* argv[])
     size_type swapno  = 0;
     size_type pmin_occ = 0;
     size_type pmax_occ = 0;
-#ifdef OUTPUT_STATS
-    gl_X = 0;
-#endif
     int repeated_in_memory_search = 0;
     int output_mem_info = 0;
     int output_tikz = 0;
@@ -291,6 +289,7 @@ int main(int argc, char* argv[])
     int delete_index_file = 0;
     size_type output_Hk = 0;
     size_type max_k = 0;
+    int verbose = false;
 
     int c;
     while (1) {
@@ -318,6 +317,7 @@ int main(int argc, char* argv[])
             {"benchmark_ext", no_argument, &run_benchmark_ext, 1},
             {"delete_tmp_file", no_argument, &delete_tmp_file, 1},
             {"delete_index_file", no_argument, &delete_index_file, 1},
+            {"verbose", no_argument, &verbose, 1},
             {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -372,6 +372,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    util::verbose = verbose;
+
     size_type input_size = (size_type)get_file_size(input_file_name.c_str());
     if (b > input_size) {
         std::cerr << "ERROR: input size ("<< input_size <<") is smaller than the block threshold b=" << b << endl;
@@ -381,6 +383,14 @@ int main(int argc, char* argv[])
     if (do_generate_index) {
         tIDX index;
         generate_index(index, input_file_name.c_str(), b, false, delete_tmp_file, tmp_file_dir.c_str(), output_dir.c_str());
+        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(),b, output_dir.c_str());
+        std::cerr << "load index from file " << int_idx_file_name << std::endl;
+        util::load_from_file(index, int_idx_file_name.c_str());
+        std::string s;
+        while (std::cin>>s) {
+            size_type cnt = index.count((const unsigned char*)s.c_str(), s.length(), false);
+            std::cout<<">>>>> pattern occurs "<<cnt<<" times"<<std::endl;
+        }
         return 0;
     }
 

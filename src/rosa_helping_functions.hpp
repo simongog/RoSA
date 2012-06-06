@@ -18,20 +18,13 @@ using namespace sdsl;
 
 typedef bit_vector::size_type size_type;
 
-//! Mark each block [lb..rb] with a one at positions lb and rb+1 in bf and calculate statistics
-/* \param cst A reference to the compressed suffix tree of the input text.
- * \param bf  A reference to the bit_vector which is marked with the block boundaries.
- * \param b   The maximal block size / block threshold.
- * \param trie_nodes A reference which will contain the number of nodes of the in-memory trie.
- * \param blocks A reference which will contain the number of blocks.
- */
+
 template<class tCst>
-void get_block_info_and_mark_blocks(const tCst& cst, bit_vector& bf, size_type b, size_type& trie_nodes,
-                                    size_type& blocks)
+void get_trie_nodes_and_blocks(const tCst& cst, size_type b, size_type& trie_nodes, size_type& blocks)
 {
     typedef typename tCst::node_type node_type;
     trie_nodes = 1; // initialize with the root
-    blocks     = 0;
+    blocks     = 0; // initialize blocks
     for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it) {
         if (it.visit() == 1) {
             node_type v = *it;
@@ -39,11 +32,33 @@ void get_block_info_and_mark_blocks(const tCst& cst, bit_vector& bf, size_type b
             if (cst.leaves_in_the_subtree(v) <= b) {
                 ++trie_nodes; // count the leaf node of the trie
                 ++blocks; // count the block
-                bf[cst.lb(v)] = 1; // mark the beginning of the block
-                it.skip_subtree();
             } else { // count the inner nodes of the trie
                 // each character on the edge from p to v gets a node
                 trie_nodes += cst.depth(v) - cst.depth(p);
+            }
+        }
+    }
+}
+
+//! Mark each block [lb..rb] with a one at positions lb and rb+1 in bf.
+/* \param cst A reference to the compressed suffix tree of the input text.
+ * \param bf  A reference to the bit_vector which is marked with the block boundaries.
+ * \param b   The maximal block size / block threshold.
+ * \param blocks A reference which will contain the number of blocks.
+ */
+template<class tCst>
+void mark_blocks(const tCst& cst, bit_vector& bf, size_type b, size_type& blocks)
+{
+    typedef typename tCst::node_type node_type;
+    blocks     = 0;
+    for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it) {
+        if (it.visit() == 1) {
+            node_type v = *it;
+            node_type p = cst.parent(v);
+            if (cst.leaves_in_the_subtree(v) <= b) {
+                ++blocks; // count the block
+                bf[cst.lb(v)] = 1; // mark the beginning of the block
+                it.skip_subtree();
             }
         }
     }
@@ -67,24 +82,25 @@ size_type get_block_depth(const tCst& cst, size_type lb, size_type rb)
  *  \param bf  A bit vector which marks each block [lb..rb] at positions lb and rb+1.
  *  \param b   Threshold for the block size.
  *  \param red_blocks 			The number of reducible blocks.
- *  \param red_blocks_delta0	The number of reducible blocks which point
+ *
+ *	\par Time complexity
+ *		 \f$  \f$
+ *	\par Space complexity
  *
  */
 template<class tCst>
-void get_block_info(const tCst& cst, const bit_vector& bf, size_type b,
-                    size_type& red_blocks, size_type& red_blocks_delta0,
-                    size_type& singleton_blocks, size_type& elements_in_irred_blocks,
-                    vector<block_node>& v_block)
+void calculate_reducible_graph(const tCst& cst, const bit_vector& bf, size_type b,
+                               size_type& red_blocks, size_type& singleton_blocks, size_type& elements_in_irred_blocks,
+                               vector<block_node>& v_block)
 {
     typedef typename tCst::node_type node_type;
     red_blocks = 0;
-    red_blocks_delta0 = 0;
     singleton_blocks = 0;
     elements_in_irred_blocks = 0;
 
     rank_support_v<> bf_rank(&bf);
     select_support_mcl<> bf_select(&bf);
-    v_block = vector<block_node>(bf_rank(cst.csa.size()));
+    v_block = vector<block_node>(bf_rank(cst.size()));
 
     size_type block_id = 0;
     for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it) {
@@ -105,11 +121,11 @@ void get_block_info(const tCst& cst, const bit_vector& bf, size_type b,
                         ++red_blocks;
                         // determine who many times we can reduce the block until
                         // we reach an irreducible block
-
                         stack<size_type> cur_block_id;
                         stack<size_type> cur_delta_x;
                         size_type dest_block_id = block_id;
-
+                        // follow LF until we reach an already handled block or an
+                        // irreducible block
                         do {
                             cur_block_id.push(dest_block_id);
                             dest_block_id = bf_rank(cst.csa.psi(lb)+1)-1;
@@ -136,7 +152,7 @@ void get_block_info(const tCst& cst, const bit_vector& bf, size_type b,
                             v_block[ x ] = block_node(delta_x, delta_d, dest_block_id);
                         }
                     }
-                } else {
+                } else { // irreducible block
                     elements_in_irred_blocks += (rb-lb);
                     v_block[block_id] = block_node(0, 0, block_id);
                 }
@@ -163,5 +179,6 @@ void close_stream_if_open(std::ifstream& in);
  *          output_dir otherwise.
  */
 std::string get_output_dir(const char* file_name, const char* output_dir=NULL);
+
 
 #endif
