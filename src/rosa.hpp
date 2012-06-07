@@ -671,50 +671,76 @@ class rosa
 
 //			(1) Load or construct the forward CST
             tCst fwd_cst;
+            write_R_output("fwd_cst","construct","begin");
             construct_or_load_fwd_cst(fwd_cst, fwd_cst_file_name, tmp_dir, delete_tmp);
+            write_R_output("fwd_cst","construct","end");
 //          (2) Create the fwd_bf bit vector
             m_n = fwd_cst.size(); if (util::verbose) cout<<"m_n="<<m_n<<endl;
             bit_vector fwd_bf(m_n+1);
             fwd_bf[m_n] = 1; // mark last bit
+            write_R_output("fwd_bf","construct","begin");
             mark_blocks(fwd_cst, fwd_bf, b, m_k);
+            write_R_output("fwd_bf","construct","end");
             util::clear(fwd_cst);  if (util::verbose) cout<<"cleared fwd_cst"<<endl;
 //          (3) Load or construct the backward CSA
             tCsa bwd_csa;
+            write_R_output("bwd_csa","construct","begin");
             construct_or_load_bwd_csa(bwd_csa, bwd_csa_file_name, tmp_dir, delete_tmp);
+            write_R_output("bwd_csa","construct","end");
 //			(4) Create m_bl, m_bf and the mapping between fwd_ids and bwd_ids
             vector<block_info> map_info;
+            write_R_output("bl,bf and bwd_id<->fwd_id mapping","construct","begin");
             calculate_bl_and_bf_and_mapping(bwd_csa, map_info);
+            write_R_output("bl,bf and bwd_id<->fwd_id mapping","construct","end");
             util::clear(bwd_csa);  if (util::verbose) cout<<"cleared bwd_csa"<<endl;
+            write_R_output("bwd_id<->fwd_id mapping","sort","begin");
             sort(map_info.begin(),map_info.end()); // sort according to bwd_lb, depth, fwd_lb and size
+            write_R_output("bwd_id<->fwd_id mapping","sort","end");
 //          (5) Create bm and min_depth
+            write_R_output("bm and min_depth","construct","begin");
             calculate_bm_and_min_depth(map_info,  m_k);
+            write_R_output("bm and min_depth","construct","end");
 //          (6) Create the reducible graph
+            write_R_output("fwd_cst","load","begin");
             construct_or_load_fwd_cst(fwd_cst, fwd_cst_file_name, tmp_dir, delete_tmp);
+            write_R_output("fwd_cst","load","end");
 
             vector<block_node> v_block;  // block_node contains (delta_x, delta_d, dest_block, bwd_id)
             size_type red_blocks=0;
             size_type singleton_blocks = 0;
             size_type elements_in_irred_blocks = 0;
+            write_R_output("reducible graph","construct","begin");
             calculate_reducible_graph(fwd_cst, fwd_bf, m_b, red_blocks, singleton_blocks,
                                       elements_in_irred_blocks, v_block);
+            write_R_output("reducible graph","construct","end");
             // now the entries delta_x, delta_d and dest_block are known for each block in forward order.
             // still missing bwd_id
 //          (7)
             util::assign(m_pointer, int_vector<>(m_k, 0, 64));
+            write_R_output("bwd_id and singleton pointers","construct","begin");
             calculate_bwd_id_and_fill_singleton_pointers(fwd_cst.csa, map_info, fwd_bf, v_block);
+            write_R_output("bwd_id and singleton pointers","construct","end");
 //          (8) Calculate the headers of the external blocks
             vector<vector<header_item> > header_of_external_block(m_k);
+            write_R_output("block_header","construct","begin");
             calculate_headers(v_block, map_info, header_of_external_block);
+            write_R_output("block_header","construct","end");
 //          (9) Write the external blocks
+            write_R_output("external blocks","write","begin");
             write_external_blocks_and_pointers(fwd_cst, fwd_bf, v_block, header_of_external_block);
+            write_R_output("external blocks","write","end");
             util::clear(fwd_cst);   // cst not needed any more
 //          (10) bit compress pointers
             util::bit_compress(m_pointer);
 //			(11) init m_bl_rank_and_cC
             construct_or_load_bwd_csa(bwd_csa, bwd_csa_file_name, tmp_dir, delete_tmp);
+            write_R_output("cC","construct","begin");
             init_bl_rank_and_cC(bwd_csa);
+            write_R_output("cC","construct","end");
 //          (12) construct condensed BWT (cBWT)
+            write_R_output("cBWT","construct","begin");
             construct_condensed_bwt(bwd_csa, tmp_dir);
+            write_R_output("cBWT","construct","end");
             util::clear(bwd_csa);
 //          (13) Open stream to text and external index for the matching
             open_streams();
@@ -1019,7 +1045,7 @@ class rosa
                         size_type lpos, clpos;
                         size_type l = get_first_l_index(v, m_bp_sct_support, lpos, clpos);
                         size_type v_depth = m_db->lcp[l];
-                        std::cout<<v_depth<<"-["<<v.i<<".."<<v.j<<"]"<<std::endl;
+//                        std::cout<<v_depth<<"-["<<v.i<<".."<<v.j<<"]"<<std::endl;
                         if (depth+m <= v_depth) {
                             return rb-lb+1;
                         }
