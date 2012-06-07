@@ -256,6 +256,7 @@ void display_usage(char* command)
     cout << " output_dir       : directory for the constructed indexes; default=dirname(input_file)" << endl;
     cout << " delete_index_file: delete the generated index files; default=0" << endl;
     cout << " verbose          : activate verbose mode." << endl;
+    cout << " interactive      : enter interactive mode after creating/loading the index." << endl;
     cout << endl;
     cout << "* if pattern_min_occ=pattern_max_occ=0 this restriction is not used in the " << endl;
     cout << "  pattern generation process." << endl;
@@ -290,6 +291,7 @@ int main(int argc, char* argv[])
     size_type output_Hk = 0;
     size_type max_k = 0;
     int verbose = false;
+	int interactive = 0;
 
     int c;
     while (1) {
@@ -318,6 +320,7 @@ int main(int argc, char* argv[])
             {"delete_tmp_file", no_argument, &delete_tmp_file, 1},
             {"delete_index_file", no_argument, &delete_index_file, 1},
             {"verbose", no_argument, &verbose, 1},
+			{"interactive",no_argument, &interactive, 1},
             {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -386,11 +389,14 @@ int main(int argc, char* argv[])
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(),b, output_dir.c_str());
         std::cerr << "load index from file " << int_idx_file_name << std::endl;
         util::load_from_file(index, int_idx_file_name.c_str());
-        std::string s;
-        while (std::cin>>s) {
-            size_type cnt = index.count((const unsigned char*)s.c_str(), s.length(), false);
-            std::cout<<">>>>> pattern occurs "<<cnt<<" times"<<std::endl;
-        }
+		if ( interactive ){
+			std::cout<<"Entering interactive mode. Please enter patterns or Ctrl-D to exit."<<std::endl;
+			std::string s;
+			while (std::cin>>s) {
+				size_type cnt = index.count((const unsigned char*)s.c_str(), s.length(), false);
+				std::cout<<">>>>> pattern occurs "<<cnt<<" times"<<std::endl;
+			}
+		}
         return 0;
     }
 
