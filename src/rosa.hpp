@@ -272,14 +272,16 @@ class rosa
                 }
 
                 //! Write the block to the output stream
-                size_type serialize(std::ostream& out)const {
+                size_type serialize(std::ostream& out, structure_tree_node* v=NULL, std::string name="")const {
+                    structure_tree_node* child = structure_tree::add_child(v, name, util::class_name(*this));
                     size_type written_bytes = 0;
-                    written_bytes += util::write_member(m_width_bwd_id, out);
-                    written_bytes += util::write_member(m_width_delta_x, out);
-                    written_bytes += m_header.serialize(out);
-                    written_bytes += LcpSerializeWrapper(m_lcp).serialize(out);
-                    written_bytes += m_sa.serialize(out);
-                    written_bytes += m_label.serialize(out);
+                    written_bytes += util::write_member(m_width_bwd_id, out, child, "width_bwd_id");
+                    written_bytes += util::write_member(m_width_delta_x, out, child, "width_delta_x");
+                    written_bytes += m_header.serialize(out, child, "header");
+                    written_bytes += LcpSerializeWrapper(m_lcp).serialize(out, child, "lcp");
+                    written_bytes += m_sa.serialize(out, child, "sa");
+                    written_bytes += m_label.serialize(out, child, "label");
+                    structure_tree::add_size(child, written_bytes);
                     return written_bytes;
                 }
 
@@ -1226,25 +1228,27 @@ child_selected:
         //! Writes the in-memory part of the index into the output stream.
         /*! \param out Output stream to which the index should be written.
          */
-        size_type serialize(std::ostream& out)const {
+        size_type serialize(std::ostream& out, structure_tree_node* v=NULL, std::string name="")const {
+            structure_tree_node* child = structure_tree::add_child(v, name, util::class_name(*this));
             size_type written_bytes = 0;
-            written_bytes += util::write_member(m_n, out);
-            written_bytes += util::write_member(m_b, out);
-            written_bytes += util::write_member(m_k, out);
-            written_bytes += m_bl.serialize(out);
-            written_bytes += m_bf.serialize(out);
-            written_bytes += m_bl_rank.serialize(out);
-            written_bytes += m_bf_rank.serialize(out);
-            written_bytes += m_bf_select.serialize(out);
-            written_bytes += m_wt.serialize(out);
-            written_bytes += m_cC.serialize(out);
-            written_bytes += m_bm.serialize(out);
-            written_bytes += m_bm_select.serialize(out);
-            written_bytes += m_bm_rank01.serialize(out);
-            written_bytes += m_min_depth.serialize(out);
-            written_bytes += m_pointer.serialize(out);
-            written_bytes += util::write_member(m_file_name, out);
-            written_bytes += util::write_member(m_output_dir, out);
+            written_bytes += util::write_member(m_n, out, child, "n");
+            written_bytes += util::write_member(m_b, out, child, "b");
+            written_bytes += util::write_member(m_k, out, child, "k");
+            written_bytes += m_bl.serialize(out, child, "bl");
+            written_bytes += m_bf.serialize(out, child, "bf");
+            written_bytes += m_bl_rank.serialize(out, child, "bl_rank");
+            written_bytes += m_bf_rank.serialize(out, child, "bl_select");
+            written_bytes += m_bf_select.serialize(out, child, "bf_select");
+            written_bytes += m_wt.serialize(out, child, "wt");
+            written_bytes += m_cC.serialize(out, child, "cC");
+            written_bytes += m_bm.serialize(out, child, "bm");
+            written_bytes += m_bm_select.serialize(out, child, "select");
+            written_bytes += m_bm_rank01.serialize(out, child, "rank01");
+            written_bytes += m_min_depth.serialize(out, child, "min_depth");
+            written_bytes += m_pointer.serialize(out, child, "pointer");
+            written_bytes += util::write_member(m_file_name, out, child, "file_name");
+            written_bytes += util::write_member(m_output_dir, out, child, "output_dir");
+            structure_tree::add_size(child, written_bytes);
             return written_bytes;
         }
 
@@ -1281,29 +1285,6 @@ child_selected:
             m_output_dir = output_dir;
             open_streams();
         }
-
-#ifdef MEM_INFO
-        void mem_info(string label="")const {
-            if (label=="") {
-                label = "rosa";
-            }
-            double megabytes = util::get_size_in_mega_bytes(*this);
-            std::cout << "list(label=\""<<label<<"\", size="<< megabytes << "\n,";
-            m_bl.mem_info("bl"); std::cout<<",";
-            m_bf.mem_info("bf"); std::cout<<",";
-            m_bl_rank.mem_info("bl_rank"); std::cout<<",";
-            m_bf_rank.mem_info("bf_rank"); std::cout<<",";
-            m_bf_select.mem_info("bf_select"); std::cout<<",";
-            m_wt.mem_info("wt"); std::cout<<",";
-            m_cC.mem_info("cC"); std::cout<<",";
-            m_bm.mem_info("bm"); std::cout<<",";
-            m_bm_select.mem_info("bm_select"); std::cout<<",";
-            m_bm_rank01.mem_info("bm_rank01"); std::cout<<",";
-            m_min_depth.mem_info("min_depth"); std::cout<<",";
-            m_pointer.mem_info("pointer");
-            std::cout << ")\n";
-        }
-#endif
 
         //! Output statistics about the data structure
         // Maybe TODO: output the number of nodes of the corresponding trie
