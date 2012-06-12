@@ -1,0 +1,200 @@
+<html>
+   <head>
+      <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+      <title>../../../data/tmp/web-4GB.4096.json</title>
+      <script src="http://d3js.org/d3.v2.js"></script>
+      <style type="text/css">
+          path { stroke: #000; stroke-width: 0.8; cursor: pointer; }
+          text { font: 11px sans-serif; cursor: pointer; }
+          body { width: 900; margin: 0 auto; }
+          h1 { text-align: center; margin: .5em 0; }
+          #breadcrumbs { display: none; }
+          svg { font: 10px sans-serif; }
+       </style>
+    </head>
+</head>
+<body>
+    <div id="chart"></div>
+<script type="text/javascript">
+var w = 800,
+    h = w,
+    r = w / 2,
+    x = d3.scale.linear().range([0, 2 * Math.PI]),
+    y = d3.scale.pow().exponent(1.3).domain([0, 1]).range([0, r]),
+    p = 5,
+    color = d3.scale.category20c(),
+    duration = 1000;
+
+var vis = d3.select("#chart").append("svg:svg")
+    .attr("width", w + p * 2)
+    .attr("height", h + p * 2)
+    .append("g")
+    .attr("transform", "translate(" + (r + p) + "," + (r + p) + ")");
+
+vis.append("p")
+    .attr("id", "intro")
+    .text("Click to zoom!");
+
+var partition = d3.layout.partition()
+    .sort(null)
+    .size([2 * Math.PI, r * r])
+    .value(function(d) { return d.size; });
+
+var arc = d3.svg.arc()
+    .startAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
+    .endAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
+    .innerRadius(function(d) { return Math.max(0, d.y ? y(d.y) : d.y); })
+    .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
+
+            
+var spaceJSON = {"class_name":"rosa","name":"","size":"105340477","children":[{"class_name":"unsigned long long","name":"n","size":"8"},{"class_name":"unsigned long long","name":"b","size":"8"},{"class_name":"unsigned long long","name":"k","size":"8"},{"class_name":"sdsl::sd_vector","name":"bl","size":"11755783","children":[{"class_name":"unsigned long long","name":"size","size":"8"},{"class_name":"unsigned char","name":"wl","size":"1"},{"class_name":"sdsl::int_vector","name":"low","size":"9191521"},{"class_name":"sdsl::int_vector","name":"high","size":"2069864"},{"class_name":"sdsl::select_support_mcl","name":"high_1_select","size":"250036","children":[{"class_name":"sdsl::int_vector","name":"superblock","size":"6001"},{"class_name":"sdsl::int_vector","name":"mini_or_long","size":"264"},{"class_name":"sdsl::int_vector","name":"longsuperblock","size":"12297"},{"class_name":"sdsl::int_vector","name":"minisuperblock","size":"231466"}]},{"class_name":"sdsl::select_support_mcl","name":"high_0_select","size":"244353","children":[{"class_name":"sdsl::int_vector","name":"superblock","size":"6153"},{"class_name":"sdsl::int_vector","name":"mini_or_long","size":"264"},{"class_name":"sdsl::int_vector","name":"longsuperblock","size":"0"},{"class_name":"sdsl::int_vector","name":"minisuperblock","size":"237928"}]}]},{"class_name":"sdsl::sd_vector","name":"bf","size":"11755271","children":[{"class_name":"unsigned long long","name":"size","size":"8"},{"class_name":"unsigned char","name":"wl","size":"1"},{"class_name":"sdsl::int_vector","name":"low","size":"9191521"},{"class_name":"sdsl::int_vector","name":"high","size":"2069864"},{"class_name":"sdsl::select_support_mcl","name":"high_1_select","size":"250268","children":[{"class_name":"sdsl::int_vector","name":"superblock","size":"6001"},{"class_name":"sdsl::int_vector","name":"mini_or_long","size":"264"},{"class_name":"sdsl::int_vector","name":"longsuperblock","size":"12297"},{"class_name":"sdsl::int_vector","name":"minisuperblock","size":"231698"}]},{"class_name":"sdsl::select_support_mcl","name":"high_0_select","size":"243609","children":[{"class_name":"sdsl::int_vector","name":"superblock","size":"6153"},{"class_name":"sdsl::int_vector","name":"mini_or_long","size":"264"},{"class_name":"sdsl::int_vector","name":"longsuperblock","size":"0"},{"class_name":"sdsl::int_vector","name":"minisuperblock","size":"237184"}]}]},{"class_name":"sdsl::sd_rank_support","name":"bl_rank","size":"0"},{"class_name":"sdsl::sd_rank_support","name":"bl_select","size":"0"},{"class_name":"sdsl::sd_select_support","name":"bf_select","size":"0"},{"class_name":"sdsl::wt_huff","name":"wt","size":"6802018","children":[{"class_name":"unsigned long long","name":"size","size":"8"},{"class_name":"unsigned long long","name":"sigma","size":"8"},{"class_name":"sdsl::int_vector","name":"tree","size":"6388880"},{"class_name":"sdsl::rank_support_v5","name":"tree_rank","size":"399320","children":[{"class_name":"sdsl::int_vector","name":"cumulative_counts","size":"399320"}]},{"class_name":"sdsl::select_support_dummy","name":"tree_select_1","size":"0"},{"class_name":"sdsl::select_support_dummy","name":"tree_select_0","size":"0"}]},{"class_name":"sdsl::int_vector","name":"cC","size":"2056"},{"class_name":"sdsl::int_vector","name":"bm","size":"2940264"},{"class_name":"sdsl::select_support_mcl","name":"select","size":"258996","children":[{"class_name":"sdsl::int_vector","name":"superblock","size":"6249"},{"class_name":"sdsl::int_vector","name":"mini_or_long","size":"264"},{"class_name":"sdsl::int_vector","name":"longsuperblock","size":"12809"},{"class_name":"sdsl::int_vector","name":"minisuperblock","size":"239666"}]},{"class_name":"sdsl::rank_support_v5","name":"rank01","size":"183784","children":[{"class_name":"sdsl::int_vector","name":"cumulative_counts","size":"183784"}]},{"class_name":"sdsl::int_vector","name":"min_depth","size":"6397041"},{"class_name":"sdsl::int_vector","name":"pointer","size":"65245145"},{"class_name":"std::string","name":"file_name","children":[{"class_name":"unsigned long","name":"length","size":"8"}]},{"class_name":"std::string","name":"output_dir","children":[{"class_name":"unsigned long","name":"length","size":"8"}]}]};
+
+
+
+  var nodes = partition.nodes(spaceJSON);
+
+  var path = vis.selectAll("path").data(nodes);
+  path.enter().append("path")
+      .attr("id", function(d, i) { return "path-" + i; })
+      .attr("d", arc)
+      .attr("fill-rule", "evenodd")
+      .style("fill", colour)
+      .on("click", click);
+
+  path.append("title").text(function(d) { return 'class name: ' + d.class_name + '\nmember_name: ' + d.name + '\n size: ' + sizeMB(d) });
+
+  var text = vis.selectAll("text").data(nodes);
+  var textEnter = text.enter().append("text")
+      .style("opacity", 1)
+      .style("fill", function(d) {
+        return brightness(d3.rgb(colour(d))) < 125 ? "#eee" : "#000";
+      })
+      .attr("text-anchor", function(d) {
+        return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
+      })
+      .attr("dy", ".2em")
+      .attr("transform", function(d) {
+        var multiline = (d.name || "").split(" ").length > 1,
+            angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
+            rotate = angle + (multiline ? -.5 : 0);
+        return "rotate(" + rotate + ")translate(" + (y(d.y) + p) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
+      })
+      .on("click", click);
+
+  textEnter.append("title").text(function(d) { return d.name + ' ' + sizeMB(d) });
+
+  textEnter.append("tspan")
+      .attr("x", 0)
+      .text(function(d) { return d.dx < 0.05 ? "" : d.depth ? d.name.split(" ")[0] : ""; });
+  textEnter.append("tspan")
+      .attr("x", 0)
+      .attr("dy", "1em")
+      .text(function(d) { return d.dx < 0.05 ? "" : d.depth ? d.name.split(" ")[1] || "" : ""; });
+
+  function click(d) {
+    path.transition()
+      .duration(duration)
+      .attrTween("d", arcTween(d));
+
+    // Somewhat of a hack as we rely on arcTween updating the scales.
+    text
+      .style("visibility", function(e) {
+        return isParentOf(d, e) ? null : d3.select(this).style("visibility");
+      })
+      .transition().duration(duration)
+      .attrTween("text-anchor", function(d) {
+        return function() {
+          return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
+        };
+      })
+      .attrTween("transform", function(d) {
+        var multiline = (d.name || "").split(" ").length > 1;
+        return function() {
+          var angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
+              rotate = angle + (multiline ? -.5 : 0);
+          return "rotate(" + rotate + ")translate(" + (y(d.y) + p) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
+        };
+      })
+      .style("opacity", function(e) { return isParentOf(d, e) ? 1 : 1e-6; })
+      .each("end", function(e) {
+        d3.select(this).style("visibility", isParentOf(d, e) ? null : "hidden");
+      });
+  }
+
+
+function sizeMB(d) {
+//  if (d.children) {
+//    var sum = calcSum(d);
+//    return (sum / (1024*1024)).toFixed(2) + 'MB';
+//  } else {
+    return (d.size / (1024*1024)).toFixed(2) + 'MB';
+//  }
+}
+
+function calcSum(d) {
+  if(d.children) {
+    var sum = 0;
+    function recurse(d) {
+      if(d.children) d.children.forEach( function(child) { recurse(child); } );
+      else sum += d.size;
+    }
+    recurse(d,sum);
+    console.log(sum);
+    console.log(d.children);
+    return sum;
+  } else {
+    console.log(d.size);
+    return d.size;
+  }
+}
+
+function isParentOf(p, c) {
+  if (p === c) return true;
+  if (p.children) {
+    return p.children.some(function(d) {
+      return isParentOf(d, c);
+    });
+  }
+  return false;
+}
+
+function colour(d) {
+    return color(d.name);
+}
+
+// Interpolate the scales!
+function arcTween(d) {
+  var my = maxY(d),
+      xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+      yd = d3.interpolate(y.domain(), [d.y, my]),
+      yr = d3.interpolate(y.range(), [d.y ? 20 : 0, r]);
+  return function(d) {
+    return function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
+  };
+}
+
+// Interpolate the scales!
+function arcTween2(d) {
+  var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+      yd = d3.interpolate(y.domain(), [d.y, 1]),
+      yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+  return function(d, i) {
+    return i
+        ? function(t) { return arc(d); }
+        : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
+  };
+}
+
+function maxY(d) {
+  return d.children ? Math.max.apply(Math, d.children.map(maxY)) : d.y + d.dy;
+}
+
+// http://www.w3.org/WAI/ER/WD-AERT/#color-contrast
+function brightness(rgb) {
+  return rgb.r * .299 + rgb.g * .587 + rgb.b * .114;
+}
+
+        
+</script>
+</body>
+</html>
