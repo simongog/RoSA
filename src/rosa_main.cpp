@@ -223,6 +223,12 @@ void benchmark(const char* file_name, size_type b, const char* pattern_file_name
             ratio_of_int_matched_queries = index.count_int_match/(double)index.count_queries;
         }
         cout << "# ratio_of_int_matched_queries = " << ratio_of_int_matched_queries << endl;
+        size_type ext_queries = index.count_queries-index.count_int_match;
+        double block_length_per_ext_query = 0;
+        if (ext_queries) {
+            block_length_per_ext_query = index.count_block_length/(double)ext_queries;
+        }
+        cout << "# block_length_per_ext_query = " << block_length_per_ext_query << endl;
 #endif
     }
 }

@@ -103,11 +103,10 @@ class rosa
         string					m_file_name;  // file name of the supported text
         string					m_output_dir; // output directory
 
-        mutable ifstream	m_text;	      // stream to the text, is needed to check
-        // the
-        mutable ifstream	m_ext_idx;    // stream to the external memory part
-        const size_type  		m_buf_size;
-        unsigned char*			m_buf;
+        mutable ifstream		m_text;	      // stream to the text
+        mutable ifstream		m_ext_idx;    // stream to the external memory part
+        unsigned char*			m_buf;		  // buffer for the text read from disk to match against the pattern
+        const size_type  		m_buf_size;   // buffer
 
 #ifdef OUTPUT_STATS
         mutable size_type m_count_disk_access; 		// see corresponding public member
@@ -115,6 +114,7 @@ class rosa
         mutable size_type m_count_int_steps;   		// see corresponding public member
         mutable size_type m_count_int_match;   		// see corresponding public member
         mutable size_type m_count_queries;	   		// see corresponding public member
+        mutable size_type m_count_block_length;     // see corresponding public member
 #endif
 
         //! Internal helper class for an external block
@@ -350,6 +350,7 @@ class rosa
         const size_type& count_int_steps; 		//!< Counter for matches that can be answered with the in-memory part of the data structure.
         const size_type& count_int_match; 		//!< Counter for matches that can be answered with the in-memory part of the data structure.
         const size_type& count_queries;			//!< Counter for the queries.
+        const size_type& count_block_length;	//!< The sum of the length of all fetched blocks in elements.
 #endif
 
         ~rosa() {
@@ -643,7 +644,7 @@ class rosa
          *		\f$ \Order{n \log\sigma} \f$, where n is the length of the text.
          */
         rosa(const char* file_name=NULL, size_type b=4000, bool output_tikz=false, bool delete_tmp=false,
-             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf_size(1024)
+             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_size(1024)
             ,bl(m_bl), bf(m_bf), wt(m_wt)
             ,bl_rank(m_bl_rank), bf_rank(m_bf_rank)
             ,bf_select(m_bf_select), bm(m_bm)
@@ -657,6 +658,7 @@ class rosa
             ,count_int_steps(m_count_int_steps)
             ,count_int_match(m_count_int_match)
             ,count_queries(m_count_queries)
+            ,count_block_length(m_count_block_length)
 #endif
         {
             m_buf = new unsigned char[m_buf_size]; // initialise buffer for pattern
@@ -899,11 +901,14 @@ class rosa
             disk_block db;
             seekg(m_ext_idx, block_addr);
             db.load(m_ext_idx);
+#ifdef OUTPUT_STATS
+            m_count_block_length += db.size();
+#endif
             size_type delta_x = 0;
             size_type delta_d = 0;
             db.get_delta_x_and_d(bwd_id, delta_x, delta_d);
             // do a binary search on the block for the pattern
-            // possible TODO: if match_pattern also returns the length of the length X of the longest matching prefix
+            // possible improvement: if match_pattern also returns the length of the length X of the longest matching prefix
             //       of pattern with the text, then we can further speed up the computation
             //       by limit the interval to the range where LCP[i] >= X
             size_type lb = delta_x, rb = delta_x+size; // [lb..rb)
@@ -928,6 +933,12 @@ class rosa
             return 0;
         }
 
+        //! This class represents a half-blind suffix tree for a disk block.
+        /*!
+         *  The half-blind suffix tree is constructed from a rosa disk-block in linear
+         *  time. After that the get_interval operation efficiently determines
+         *  if and how often a pattern can possible occur in the disk block.
+         */
         class block_tree
         {
             public:
@@ -1030,6 +1041,11 @@ class rosa
                  *	\param depth	Number of characters already matched.
                  *  \param lb		Left boundary of the search interval (inclusive).
                  *  \param rb   	Right boundary of the search interval (inclusive).
+                 *	\return The number of potential occurrences of the pattern in the block.
+                 *
+                 *  Possible improvements: Determine in the search process, if there was
+                 *                         a blind step. If not, we can report that and
+                 *                         don't have to access disk for a check.
                  */
                 size_type get_interval(const unsigned char* pattern, size_type m, size_type depth,
                                        size_type& lb, size_type& rb) {
@@ -1047,7 +1063,6 @@ class rosa
                         size_type lpos, clpos;
                         size_type l = get_first_l_index(v, m_bp_sct_support, lpos, clpos);
                         size_type v_depth = m_db->lcp[l];
-//                        std::cout<<v_depth<<"-["<<v.i<<".."<<v.j<<"]"<<std::endl;
                         if (depth+m <= v_depth) {
                             return rb-lb+1;
                         }
@@ -1130,21 +1145,36 @@ child_selected:
             }
             disk_block db;				                     // disk block object
             seekg(m_ext_idx, block_addr);                    // seek to the start address of the disk block
-            db.load(m_ext_idx);			                     // fetch the disk block
-            size_type delta_x = 0, delta_d = 0;              //
-            db.get_delta_x_and_d(bwd_id, delta_x, delta_d); // TODO: get interval [delta_x..delta_x+size]
-            size_type N = db.lcp.size(); // N = block size
-            block_tree tree(db);
-            size_type lb = delta_x, rb = delta_x+size-1;
-            size = tree.get_interval(pattern, m, depth+delta_d, lb, rb);
-
+            db.load(m_ext_idx);			                     // fetch the disk block (load the header, LCP
+#ifdef OUTPUT_STATS
+            m_count_block_length += db.size(); // not db.size() >= size
+#endif
+            size_type delta_x = 0, delta_d = 0;
+            db.get_delta_x_and_d(bwd_id, delta_x, delta_d);
+            size_type lb = delta_x, rb = delta_x+size-1;     // determine left and right bound
+#ifdef BENCHMARK_LOAD_ONLY
+            // don't construct and match
+#else
+            block_tree tree(db);							 // create tree structure out of the block
+#ifdef BENCHMARK_CREATE_ONLY
+            // don't to the actual matching but something; but use the block_tree, so that
+            // the construction is no optimized out
+            size = std::min(size, tree.size());
+#else
+            size = tree.get_interval(pattern, m, depth+delta_d, lb, rb); // do the matching
+#endif // END BENCHMARK_CREATE_ONLY
+#endif // END BENCHMARK_LOAD_ONLY
             // if the search interval is not of size 0, and the check for the pattern
             // on disk is successful
+#if defined BENCHMARK_LOAD_ONLY || defined BENCHMARK_CREATE_ONLY || defined BENCHMARK_SEARCH_BLOCK_ONLY
+            return size;
+#endif
             if (size > 0 and 0 ==  match_pattern(pattern, m, db.sa[lb] + depth + delta_d)) {
                 return size; // return the interval size
             } else {
                 return 0;
             }
+
         }
 
 
@@ -1217,6 +1247,7 @@ child_selected:
             m_count_int_steps   	= 0;
             m_count_int_match   	= 0;
             m_count_queries			= 0;
+            m_count_block_length    = 0;
 #endif
         }
 
