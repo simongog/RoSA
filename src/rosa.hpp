@@ -130,16 +130,13 @@ class rosa
                 uint8_t m_width_delta_x;// Bit width of the maximal delta x in the header.
                 int_vector<>  m_lcp; 	// Array for the lcp values.
                 int_vector<>  m_sa;		// Array for the suffix array values.
-                int_vector<8> m_label;  // Array for the edge labels.
-
             public:
 
                 const int_vector<>&  header;// const reference to the header
                 const int_vector<>&  lcp;	// const reference to the lcp values
                 const int_vector<>&  sa;	// const reference to the suffix array values
-                const int_vector<8>& label; // const reference to the stored edge labels.
 
-                disk_block():header(m_header), lcp(m_lcp), sa(m_sa), label(m_label) {};
+                disk_block():header(m_header), lcp(m_lcp), sa(m_sa) {};
 
 
                 size_type header_size_in_bytes() {
@@ -189,7 +186,7 @@ class rosa
                         m_sa[i-lb] = cst.csa[i];
                         m_lcp[i-lb] = cst.lcp[i];
                     }
-                    calculate_label(m_sa, m_lcp, text, m_label);
+                    calculate_bit_lcp(m_lcp, m_sa, text, cst, lb);
                     util::bit_compress(m_sa);			   // bit compress the vectors
                     util::bit_compress(m_lcp);
                     if (util::verbose) {
@@ -200,37 +197,25 @@ class rosa
                         std::cout << "LCP ="; for (size_type i=0; i<m_lcp.size(); ++i) {
                             std::cout << " " << m_lcp[i];
                         }; std::cout << std::endl;
-                        std::cout << "LABELS ="; for (size_type i=0; i<m_lcp.size(); ++i) {
-                            std::cout << " " << m_label[i];
-                        }; std::cout << std::endl;
                     }
 
                 }
 
-                template<class rac>
-                void calculate_label(const rac& sa, const rac& lcp, const unsigned char* text, int_vector<8>& label) {
-                    label.resize(lcp.size());
-                    std::stack<size_type> open_pos; // stack for the opening positions of the parenthesis
-                    std::stack<size_type> same_before; // same elements before on the stack
-                    size_type label_idx = 0;
-                    for (size_type i=0, x=0; i <= lcp.size(); ++i) {
-                        while (!open_pos.empty() and (i==lcp.size() or lcp[open_pos.top()] > lcp[i])) {
-                            x = open_pos.top();
-                            // store every second edge label |  not label of the root
-                            if (same_before.top() % 2 == 0 and !(i==lcp.size() and open_pos.size()==1)) {
-                                label[label_idx++] = text[sa[x] + lcp[x]];
-                                if (util::verbose) std::cout<<"sa["<<x<<"]="<<sa[x]<<" lcp[x]="<<lcp[x]<<" text["<<sa[x]+lcp[x]<<"]="<<(char)label[label_idx-1]<<std::endl;
-                            }
-                            open_pos.pop(); same_before.pop();
-                        }
-                        if (open_pos.empty() or lcp[open_pos.top()] < lcp[i]) {
-                            same_before.push(0);
-                        } else {
-                            same_before.push(same_before.top()+1);
-                        }
-                        open_pos.push(i);
+                template<class rac, class tCst>
+                void calculate_bit_lcp(rac& lcp, const rac& sa, const unsigned char* text, const tCst& cst, size_type lb) {
+                    if (lb == 0) {  // if we are in the first interval; should be the 0-interval
+                        lcp[0] = 0;
+                    } else {
+                        unsigned char c1 = text[cst.csa[lb-1] + lcp[0]];
+                        unsigned char c2 = text[sa[0] + lcp[0]];
+                        lcp[0] = lcp[0]*8 + 7-bit_magic::l1BP(c1^c2);
                     }
-                    label.resize(label_idx);
+                    for (size_type i=1; i < lcp.size(); ++i) {
+                        unsigned char c1 = text[sa[i-1] + lcp[i]];
+                        unsigned char c2 = text[sa[i] + lcp[i]];
+                        lcp[i] = lcp[i]*8 + 7-bit_magic::l1BP(c1^c2);
+                        c1 = c2;
+                    }
                 }
 
                 //! Decode the i-th triple of the header
@@ -280,7 +265,6 @@ class rosa
                     written_bytes += m_header.serialize(out, child, "header");
                     written_bytes += LcpSerializeWrapper(m_lcp).serialize(out, child, "lcp");
                     written_bytes += m_sa.serialize(out, child, "sa");
-                    written_bytes += m_label.serialize(out, child, "label");
                     structure_tree::add_size(child, written_bytes);
                     return written_bytes;
                 }
@@ -292,7 +276,6 @@ class rosa
                     m_header.load(in);
                     LcpLoadWrapper(m_lcp).load(in);
                     m_sa.load(in);
-                    m_label.load(in);
                 }
         };
 
@@ -362,7 +345,7 @@ class rosa
         //! Get the name of the file where the external part of the index is stored.
         static string get_ext_idx_filename(const char* file_name, size_type b,  const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + ".ext_idx";
+                   + "." + util::to_string(b) + ".bt.ext_idx";
         }
 
         //! Get the name of the file where the external part of the index is stored.
@@ -946,11 +929,8 @@ class rosa
                 typedef bp_interval<size_type> node_type;
             private:
                 const disk_block* m_db;             // pointer to the disk_block
-                bit_vector        m_bp_sct;         // balanced parentheses sequence of super-Cartesian-tree
-                bit_vector        m_bp_rc;          // bit vector marking the rightmost child
-                bit_vector        m_label_map;      // helper bit_vector for mapping a node to its edges
-                bp_support_sada<> m_bp_sct_support; // support structure for m_bp_sct
-                rank_support_v<>  m_label_map_rank;
+                bit_vector        m_bp_ct;          // balanced parentheses sequence of Cartesian-tree
+                bp_support_sada<> m_bp_ct_support;  // balanced parentheses support for m_bp_ct
 
                 // Get the first l index of a [i,j] interval.
                 /* I.e. given an interval [i,j], the function returns the position of the smallest entry lcp[k] with \f$ i<k\leq j \f$
@@ -980,65 +960,31 @@ class rosa
                 block_tree(const disk_block& db):m_db(&db) {
                     size_type N = db.lcp.size();
                     // initialize bitvectors
-                    util::assign(m_bp_sct, bit_vector(2*N, 0));
-                    util::assign(m_bp_rc, bit_vector(N, 1));
-                    util::assign(m_label_map, bit_vector(N, 0));
+                    util::assign(m_bp_ct, bit_vector(2*N, 0));
                     // calculate content
                     stack<size_type> prev;     // stack for the previous seen LCP values
-                    size_type idx=0, rc_idx=0;
-                    for (size_type i=0, x; i< N; ++i) {
-                        size_type last_popped = (size_type)-1;
+                    for (size_type i=0, idx=0, x; i< N; ++i) {
                         while (!prev.empty() and (x=db.lcp[prev.top()]) > db.lcp[i]) {
-                            if (last_popped == x) {
-                                m_bp_rc[rc_idx-1] = 0;
-                            }
-                            last_popped = x;
                             prev.pop();
-                            idx++; // move forward in bp_sct == write a closing parenthesis
-                            rc_idx++; // move forward in bp_rc
+                            idx++; // move forward in bp_ct == write a closing parenthesis
                         }
-                        m_bp_sct[idx++] = 1; // write opening parenthesis for element i
+                        m_bp_ct[idx++] = 1; // write opening parenthesis for element i
                         prev.push(i);
                     }
-                    {
-                        // handle remaining elements on the stack
-                        size_type last_popped = (size_type)-1; // m_n is not equal with any LCP value
-                        while (!prev.empty()) {
-                            size_type x = db.lcp[prev.top()];
-                            if (last_popped == x) {
-                                m_bp_rc[rc_idx-1] = 0;
-                            }
-                            last_popped = x;
-                            prev.pop();
-                            rc_idx++;
-                        }
-                    }
-                    // note: label_map[label_map.size()-1] = 0, since this character was already used in the
-                    // in memory structure
-                    for (size_type i=N, zeros=0; i > 1; --i) {
-                        m_label_map[i-2] = m_bp_rc[i-2] or ((!m_bp_rc[i-2]) and (!m_bp_rc[i-1]) and m_label_map[i]);
-                    }
-                    util::init_support(m_bp_sct_support, &m_bp_sct);
-                    util::init_support(m_label_map_rank, &m_label_map);
+                    util::init_support(m_bp_ct_support, &m_bp_ct);
 
-                    if (false and util::verbose) {
+                    if (util::verbose) {
                         for (size_type i=0; i<db.lcp.size(); ++i) {
                             std::cout<<" "<<db.lcp[i];
                         } std::cout<<std::endl;
-                        for (size_type i=0; i<db.label.size(); ++i) {
-                            std::cout<<" "<<db.label[i];
-                        } std::cout<<std::endl;
-                        std::cout<<std::endl;
-                        std::cout<<"m_bp_sct="<<m_bp_sct;
-                        std::cout<<"m_bp_rc="<<m_bp_rc;
-                        std::cout<<"m_label_map="<<m_label_map;
+                        std::cout<<"m_bp_ct="<<m_bp_ct;
                     }
                 }
 
                 /*!
                  *  \param pattern  Pointer to the remaining pattern.
-                 *  \param m		Length of the remaining pattern.
-                 *	\param depth	Number of characters already matched.
+                 *  \param m		Length of the remaining pattern (in characters).
+                 *	\param depth	Number of characters already matched (in characters).
                  *  \param lb		Left boundary of the search interval (inclusive).
                  *  \param rb   	Right boundary of the search interval (inclusive).
                  *	\return The number of potential occurrences of the pattern in the block.
@@ -1049,80 +995,41 @@ class rosa
                  */
                 size_type get_interval(const unsigned char* pattern, size_type m, size_type depth,
                                        size_type& lb, size_type& rb) {
-                    bool blind = false; // blind is true if we made decisions during the
                     // search process which can lead to a false positive result
                     size_type old_v_depth = depth;
-                    size_type lb_pos = m_bp_sct_support.select(lb+1);
-                    size_type rb_p1_pos = (rb+1 < size() ? m_bp_sct_support.select(rb+2) : 2*size());
-                    node_type v(lb, rb, lb_pos, m_bp_sct_support.find_close(lb_pos), rb_p1_pos);
+                    size_type lb_pos = m_bp_ct_support.select(lb+1);
+                    size_type rb_p1_pos = (rb+1 < size() ? m_bp_ct_support.select(rb+2) : 2*size());
+                    node_type v(lb, rb, lb_pos, m_bp_ct_support.find_close(lb_pos), rb_p1_pos);
 
                     while (1) {
+                        if (util::verbose) {
+                            std::cout<<v.i<<" "<<v.j<<std::endl;
+                        }
                         if (is_leaf(v)) {
                             return 1;
                         }
                         size_type lpos, clpos;
-                        size_type l = get_first_l_index(v, m_bp_sct_support, lpos, clpos);
-                        size_type v_depth = m_db->lcp[l];
-                        if (depth+m <= v_depth) {
+                        size_type l = get_first_l_index(v, m_bp_ct_support, lpos, clpos);
+                        size_type v_bit_depth = m_db->lcp[l];
+                        if (v_bit_depth >= (depth+m)*8) {
                             return rb-lb+1;
                         }
-                        // process children sequentially; there are at least 2
-                        size_type rc_pos = clpos-m_bp_sct_support.rank(clpos);
-                        size_type label_pos = m_label_map_rank(rc_pos);
-                        unsigned char c = m_db->label[ label_pos ];       // label of the second child
-                        unsigned char pc = *(pattern + (v_depth-depth));  // pattern char
-                        if (util::verbose) std::cout<<"c="<<m_db->label[ label_pos ]<<" pc="<<pc<<"\n";
-
-                        // sequentially search the children
-                        while (pc > c) {  // while the character of the pattern is bigger than the label in the tree
-                            if (rc_pos == 0 or m_bp_rc[rc_pos-1]) { // no more child to the right
-                                // => pattern can not exist
-                                lb = rb = v.j;
-                                return 0;
-                            } else if (rc_pos == 1 or m_bp_rc[rc_pos-2]) { // on more children to the right
-                                // => pattern might be in this subtree; calculate node: adjust left bound
-                                clpos 	-= 1;
-                                lpos 	= m_bp_sct_support.find_open(clpos);
-                                lb 		= m_bp_sct_support.rank(lpos)-1;
-                                v 		= node_type(lb, v.j, lpos, clpos, v.jp1pos);
-                                goto child_selected;
-                            } else { // two more children to the right
-                                clpos   -= 2; // adjust left bound
-                                rc_pos  -= 2;
-                                c       = m_db->label[ --label_pos ];
-                            }
+                        unsigned char pc = *(pattern + (v_bit_depth/8 - depth));  // pattern char
+                        if ((pc >> (7-(v_bit_depth%8)))&1) {   // 1-bit at depth v_bit_depth in the pattern
+                            // => go to the right child in the tree
+                            v = node_type(l ,v.j, lpos, clpos, v.jp1pos);
+                        } else { // 0-bit at depth v_bit_depth in the pattern
+                            // => go to the left child in the tree
+                            v = node_type(v.i, l-1, v.ipos, v.cipos, lpos);
                         }
-                        // now pc <= c
-                        if (pc == c) {   // if pc is equal to c --> goto the right child
-                            lpos 	= m_bp_sct_support.find_open(clpos); // current l-index is the left border
-                            lb 		= m_bp_sct_support.rank(lpos)-1;
-                            if (rc_pos == 0 or m_bp_rc[rc_pos-1]) {  // no more children to the right
-                                v	= node_type(lb, v.j, lpos, clpos, v.jp1pos);
-                            } else { // more children to the right
-                                rb_p1_pos = m_bp_sct_support.find_open(clpos-1);
-                                rb = m_bp_sct_support.rank(rb_p1_pos)-2;
-                                v = node_type(lb, rb, lpos, clpos, rb_p1_pos);
-                            }
-                        } else { // if pc is smaller than c --> goto the left child
-                            rb_p1_pos	= m_bp_sct_support.find_open(clpos); // current l-index is the right border
-                            rb			= m_bp_sct_support.rank(rb_p1_pos)-2;
-                            if (m_bp_rc[rc_pos]) { // no more children to the left
-                                v = node_type(v.i, rb, v.ipos, v.cipos, rb_p1_pos);
-                            } else { // more children to the left
-                                ++clpos; // go to the previous l-index
-                                lpos	= m_bp_sct_support.find_open(clpos);
-                                lb 		= m_bp_sct_support.rank(lpos)-1;
-                                v = node_type(lb, rb, lpos, clpos, rb_p1_pos);
-                            }
-                        }
-child_selected:
-                        lb = v.i; rb = v.j;
+                        lb = v.i;
+                        rb = v.j;
                     }
                     return 0;
                 }
 
                 size_type size()const {
-                    return m_bp_rc.size();
+                    return m_bp_ct.size()/2;
                 }
         };
 
@@ -1329,7 +1236,6 @@ child_selected:
             double header_in_megabyte = 0.0;
             double lcp_in_megabyte    = 0.0;
             double sa_in_megabyte     = 0.0;
-            double label_in_megabyte  = 0.0;
 
             size_type max_bwd_id = 0;
             size_type max_delta_x = 0;
@@ -1352,7 +1258,6 @@ child_selected:
                 header_in_megabyte += util::get_size_in_mega_bytes(db.header);
                 lcp_in_megabyte += util::get_size_in_mega_bytes(LcpSerializeWrapper(db.lcp));
                 sa_in_megabyte += util::get_size_in_mega_bytes(db.sa);
-                label_in_megabyte += util::get_size_in_mega_bytes(db.label);
 
 
                 for (size_type i=0; i<db.header.size(); ++i) {
@@ -1385,7 +1290,7 @@ child_selected:
             std::cout << "# header_in_megabyte = " << header_in_megabyte << std::endl;
             std::cout << "# lcp_in_megabyte = " << lcp_in_megabyte << std::endl;
             std::cout << "# sa_in_megabyte = " << sa_in_megabyte << std::endl;
-            std::cout << "# label_in_megabyte = " << label_in_megabyte << std::endl;
+            std::cout << "# label_in_megabyte = " << 0 << std::endl;
         }
 
         //! Print statistics about the input text.
