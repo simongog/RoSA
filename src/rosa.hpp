@@ -37,6 +37,10 @@ using std::ifstream;
 using std::map;
 using std::ostream;
 
+#ifndef LCP_WRAP
+#define LCP_WRAP 0 //VBYTE
+#endif
+
 // forward declaration of the rosa class with default template parameters
 template<class BitVector = bit_vector // for bl and bf
 ,class RankSupport = typename BitVector::rank_1_type // for bl and bf
@@ -45,8 +49,14 @@ template<class BitVector = bit_vector // for bl and bf
 rank_support_v5<>,
 select_support_dummy,
 select_support_dummy> // for pruned BWT
+#if LCP_WRAP == 0
 ,class LcpSerializeWrapper = int_vector_serialize_vbyte_wrapper<> // int_vector_serialize_wrapper<>
 ,class LcpLoadWrapper = int_vector_load_vbyte_wrapper<>  // int_vector_load_wrapper<>
+#endif
+#if LCP_WRAP == 1
+,class LcpSerializeWrapper = int_vector_serialize_vlen_wrapper<> // int_vector_serialize_wrapper<>
+,class LcpLoadWrapper = int_vector_load_vlen_wrapper<>  // int_vector_load_wrapper<>
+#endif
 >
 class rosa;
 
@@ -128,16 +138,17 @@ class rosa
                 int_vector<> m_header;	// Each entry contains an encoded header triple.
                 uint8_t m_width_bwd_id;	// Bit width of the maximal value of a backward id in the header.
                 uint8_t m_width_delta_x;// Bit width of the maximal delta x in the header.
-                int_vector<>  m_lcp; 	// Array for the lcp values.
+                int_vector<>  m_lcp; 	// Array for the relative bit-Lcp values.
                 int_vector<>  m_sa;		// Array for the suffix array values.
+                bit_vector    m_bp_ct;  // Bitvector for the balanced parentheses of the Cartesian Tree of the LCP Array
             public:
 
                 const int_vector<>&  header;// const reference to the header
                 const int_vector<>&  lcp;	// const reference to the lcp values
                 const int_vector<>&  sa;	// const reference to the suffix array values
+                const bit_vector&    bp_ct; // const reference to the balanced parentheses
 
-                disk_block():header(m_header), lcp(m_lcp), sa(m_sa) {};
-
+                disk_block():header(m_header), lcp(m_lcp), sa(m_sa), bp_ct(m_bp_ct) {};
 
                 size_type header_size_in_bytes() {
                     return sizeof(m_width_bwd_id) + sizeof(m_width_delta_x) +
@@ -187,8 +198,16 @@ class rosa
                         m_lcp[i-lb] = cst.lcp[i];
                     }
                     calculate_bit_lcp(m_lcp, m_sa, text, cst, lb);
-                    util::bit_compress(m_sa);			   // bit compress the vectors
-                    util::bit_compress(m_lcp);
+                    if (util::verbose) {
+                        std::cout << "[" << lb << "," << rb << "]" << std::endl;
+                        std::cout << "LCP ="; for (size_type i=0; i<m_lcp.size(); ++i) {
+                            std::cout << " " << m_lcp[i];
+                        }; std::cout << std::endl;
+                    }
+                    calculate_bp(m_bp_ct, m_lcp);
+                    util::bit_compress(m_sa);			   // bit compress suffix array values
+                    calculate_relative_bit_lcp(m_lcp, 0, m_lcp.size(), 0);
+
                     if (util::verbose) {
                         std::cout << "[" << lb << "," << rb << "]" << std::endl;
                         std::cout << "SA ="; for (size_type i=0; i<m_sa.size(); ++i) {
@@ -198,7 +217,23 @@ class rosa
                             std::cout << " " << m_lcp[i];
                         }; std::cout << std::endl;
                     }
+                }
 
+                template<class rac>
+                void calculate_bp(bit_vector& bp_ct, const rac& lcp) {
+                    size_type N = lcp.size();
+                    // initialize bitvectors
+                    util::assign(bp_ct, bit_vector(2*N, 0));
+                    // calculate content
+                    stack<size_type> prev;     // stack for the previous seen LCP values
+                    for (size_type i=0, idx=0, x; i< N; ++i) {
+                        while (!prev.empty() and (x=lcp[prev.top()]) > lcp[i]) {
+                            prev.pop();
+                            idx++; // move forward in bp_ct == write a closing parenthesis
+                        }
+                        m_bp_ct[idx++] = 1; // write opening parenthesis for element i
+                        prev.push(i);
+                    }
                 }
 
                 template<class rac, class tCst>
@@ -217,6 +252,25 @@ class rosa
                         c1 = c2;
                     }
                 }
+
+                // TODO: till now, this is quadratic in the maximal block size
+                // the complexity should be linear in a final implementation
+                template<class rac>
+                void calculate_relative_bit_lcp(rac& lcp, size_type lb, size_type rb, size_type min_lcp) {
+                    if (lb < rb) {
+                        size_type min_idx = lb;
+                        for (size_type i = lb+1; i < rb; ++i) {
+                            if (lcp[i] < lcp[min_idx]) {
+                                min_idx = i;
+                            }
+                        }
+                        calculate_relative_bit_lcp(lcp, lb, min_idx, lcp[min_idx]); // left sub-array
+                        calculate_relative_bit_lcp(lcp, min_idx+1, rb, lcp[min_idx]);
+                        lcp[min_idx] = lcp[min_idx] - min_lcp;
+                    }
+                }
+
+
 
                 //! Decode the i-th triple of the header
                 /*! \param i		Index of the header-triple.
@@ -263,6 +317,7 @@ class rosa
                     written_bytes += util::write_member(m_width_bwd_id, out, child, "width_bwd_id");
                     written_bytes += util::write_member(m_width_delta_x, out, child, "width_delta_x");
                     written_bytes += m_header.serialize(out, child, "header");
+                    written_bytes += m_bp_ct.serialize(out, child, "bp_ct");
                     written_bytes += LcpSerializeWrapper(m_lcp).serialize(out, child, "lcp");
                     written_bytes += m_sa.serialize(out, child, "sa");
                     structure_tree::add_size(child, written_bytes);
@@ -274,6 +329,7 @@ class rosa
                     util::read_member(m_width_bwd_id, in);
                     util::read_member(m_width_delta_x, in);
                     m_header.load(in);
+                    m_bp_ct.load(in);
                     LcpLoadWrapper(m_lcp).load(in);
                     m_sa.load(in);
                 }
@@ -345,7 +401,7 @@ class rosa
         //! Get the name of the file where the external part of the index is stored.
         static string get_ext_idx_filename(const char* file_name, size_type b,  const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + ".bt.ext_idx";
+                   + "." + util::to_string(b) + "." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
         }
 
         //! Get the name of the file where the external part of the index is stored.
@@ -929,7 +985,6 @@ class rosa
                 typedef bp_interval<size_type> node_type;
             private:
                 const disk_block* m_db;             // pointer to the disk_block
-                bit_vector        m_bp_ct;          // balanced parentheses sequence of Cartesian-tree
                 bp_support_sada<> m_bp_ct_support;  // balanced parentheses support for m_bp_ct
 
                 // Get the first l index of a [i,j] interval.
@@ -947,6 +1002,56 @@ class rosa
                     return bp_support.rank(kpos)-1;
                 }
 
+                // Get the next smaller value.
+                /* \par Time complexity
+                 *      \f$ \Order{1} \f$
+                 */
+                // Returns n if there is no next smaller value in [i+1..n-1]
+                inline size_type nsv(size_type i, size_type ipos, const bp_support_sada<>& bp_support)const { // possible optimization: calculate also position of nsv, i.e. next ( following position cipos
+                    size_type cipos = bp_support.find_close(ipos);
+                    size_type result = bp_support.rank(cipos);
+                    return result;
+                }
+
+                // Get the previous smaller value. Adapted for the case that there are no equal values in the array.
+                /*
+                 * \par Time complexity
+                 *    \f$ \Order{\frac{\sigma}{w}} \f$, where w=64 is the word size, can be implemented in \f$\Order{1}\f$ with rank and select
+                 */
+                inline size_type psv(size_type i, size_type ipos, size_type cipos, size_type& psvpos, size_type& psvcpos, const bp_support_sada<>& bp_support)const {
+                    if (i == 0) {  // if lcp[i]==0 => psv is the 0th index by definition
+                        psvpos = 0;
+                    } else {
+                        psvpos = bp_support.enclose(ipos);
+                    }
+                    psvcpos = bp_support.find_close(psvpos);
+                    return bp_support.rank(psvpos)-1;
+                }
+
+                //! Calculate the parent node of a node v.
+                /*! \param v A valid node of the suffix tree.
+                 *  \return The parent node of v or the root if v==root().
+                 *  \par Time complexity
+                 *       \f$ \Order{1}\f$
+                 */
+                node_type parent(const node_type& v, const bit_vector bp,const bp_support_sada<>& bp_support) const {
+                    if (v.cipos > v.jp1pos) { // LCP[i] <= LCP[j+1]
+                        size_type psv_pos, psv_cpos, psv_v, nsv_v, nsv_p1pos;
+                        psv_v = psv(v.j+1, v.jp1pos, bp_support.find_close(v.jp1pos), psv_pos, psv_cpos, bp_support);
+                        nsv_v = nsv(v.j+1, v.jp1pos, bp_support)-1;
+                        if (nsv_v == size()-1) {
+                            nsv_p1pos = bp.size();
+                        } else { // nsv_v < size()-1
+                            nsv_p1pos = bp_support.select(nsv_v+2);
+                        }
+                        return node_type(psv_v, nsv_v, psv_pos, psv_cpos, nsv_p1pos);
+                    } else { // LCP[i] > LCP[j+1]
+                        size_type psv_pos, psv_cpos, psv_v;
+                        psv_v = psv(v.i, v.ipos, v.cipos, psv_pos, psv_cpos, bp_support);
+                        return node_type(psv_v, v.j, psv_pos, psv_cpos, v.jp1pos);
+                    }
+                }
+
                 //! Decide if a node is a leaf in the suffix tree.
                 /*!\param v A valid node of a cst_sct3.
                  * \returns A boolean value indicating if v is a leaf.
@@ -956,28 +1061,18 @@ class rosa
                 bool is_leaf(const node_type& v)const {
                     return v.i==v.j;
                 }
+
+                bool is_root(const node_type& v)const {
+                    return v.i==0 and v.j+1 == m_db->lcp.size();
+                }
             public:
                 block_tree(const disk_block& db):m_db(&db) {
-                    size_type N = db.lcp.size();
-                    // initialize bitvectors
-                    util::assign(m_bp_ct, bit_vector(2*N, 0));
-                    // calculate content
-                    stack<size_type> prev;     // stack for the previous seen LCP values
-                    for (size_type i=0, idx=0, x; i< N; ++i) {
-                        while (!prev.empty() and (x=db.lcp[prev.top()]) > db.lcp[i]) {
-                            prev.pop();
-                            idx++; // move forward in bp_ct == write a closing parenthesis
-                        }
-                        m_bp_ct[idx++] = 1; // write opening parenthesis for element i
-                        prev.push(i);
-                    }
-                    util::init_support(m_bp_ct_support, &m_bp_ct);
-
+                    util::init_support(m_bp_ct_support, &(m_db->bp_ct));
                     if (util::verbose) {
-                        for (size_type i=0; i<db.lcp.size(); ++i) {
-                            std::cout<<" "<<db.lcp[i];
+                        for (size_type i=0; i<m_db->lcp.size(); ++i) {
+                            std::cout<<" "<<m_db->lcp[i];
                         } std::cout<<std::endl;
-                        std::cout<<"m_bp_ct="<<m_bp_ct;
+                        std::cout<<"m_bp_ct="<<m_db->bp_ct;
                     }
                 }
 
@@ -996,21 +1091,45 @@ class rosa
                 size_type get_interval(const unsigned char* pattern, size_type m, size_type depth,
                                        size_type& lb, size_type& rb) {
                     // search process which can lead to a false positive result
-                    size_type old_v_depth = depth;
                     size_type lb_pos = m_bp_ct_support.select(lb+1);
                     size_type rb_p1_pos = (rb+1 < size() ? m_bp_ct_support.select(rb+2) : 2*size());
                     node_type v(lb, rb, lb_pos, m_bp_ct_support.find_close(lb_pos), rb_p1_pos);
+                    if (is_leaf(v)) {
+                        return 1;
+                    }
+
+                    size_type v_bit_depth = 0;
+                    node_type w = v;
+                    while (!is_root(w)) {
+                        node_type w_old = w;
+                        if (util::verbose) {
+                            std::cout<<w.i<<" "<<w.j<<" v_bit_depth="<<v_bit_depth<<std::endl;
+                        }
+                        w = parent(w, m_db->bp_ct, m_bp_ct_support);
+                        if (w.j > w_old.j) {
+                            v_bit_depth += m_db->lcp[w_old.j+1];
+                        } else {
+                            v_bit_depth += m_db->lcp[w_old.i];
+                        }
+                    }
+                    v_bit_depth += m_db->lcp[0];
+                    if (util::verbose) {
+                        std::cout<<w.i<<" "<<w.j<<" v_bit_depth="<<v_bit_depth<<std::endl;
+                    }
 
                     while (1) {
                         if (util::verbose) {
-                            std::cout<<v.i<<" "<<v.j<<std::endl;
+                            std::cout<<v.i<<" "<<v.j<<" v_bit_depth="<<v_bit_depth<<std::endl;
                         }
                         if (is_leaf(v)) {
                             return 1;
                         }
                         size_type lpos, clpos;
                         size_type l = get_first_l_index(v, m_bp_ct_support, lpos, clpos);
-                        size_type v_bit_depth = m_db->lcp[l];
+                        v_bit_depth += m_db->lcp[l];
+                        if (util::verbose) {
+                            std::cout<<"l-index="<<l<<" v_bit_depth="<<v_bit_depth<<std::endl;
+                        }
                         if (v_bit_depth >= (depth+m)*8) {
                             return rb-lb+1;
                         }
@@ -1029,7 +1148,7 @@ class rosa
                 }
 
                 size_type size()const {
-                    return m_bp_ct.size()/2;
+                    return m_db->lcp.size();
                 }
         };
 
