@@ -401,7 +401,7 @@ class rosa
         //! Get the name of the file where the external part of the index is stored.
         static string get_ext_idx_filename(const char* file_name, size_type b,  const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + "." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
+                   + "." + util::to_string(b) + ".2." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
         }
 
         //! Get the name of the file where the external part of the index is stored.
@@ -412,9 +412,8 @@ class rosa
 
         //! Get the name of the file where the in-memory part of the index is stored.
         static string get_int_idx_filename(const char* file_name, size_type b, const char* output_dir=NULL) {
-
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + "."+INDEX_SUF+".int_idx";
+                   + "." + util::to_string(b) + ".2." + SDSL_XSTR(LCP_WRAP) + "." +INDEX_SUF+".int_idx";
         }
 
         //! Get the name of the file where the in-memory part of the index is stored.

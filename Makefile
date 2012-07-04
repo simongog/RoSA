@@ -7,8 +7,8 @@ CFLAGS=-O3 -funroll-loops -msse4.2 -DMEM_INFO -DOUTPUT_STATS -DMEM_INFO -DWRITE_
 all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_helping_functions.o \
 	 ${BIN_DIR}/pattern_file.o \
-	 ${BIN_DIR}/rosa_sd \
-	 ${BIN_DIR}/rosa_sd_delta \
+	 ${BIN_DIR}/rosa_sd2 \
+	 ${BIN_DIR}/rosa_sd2_delta \
 	 ${BIN_DIR}/rosa_sd_load_only\
 	 ${BIN_DIR}/rosa_sd_create_only\
 	 ${BIN_DIR}/rosa_sd_search_block_only
@@ -30,15 +30,15 @@ ${BIN_DIR}/rosa_helping_functions.o:
 ${BIN_DIR}/pattern_file.o:
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -c ${SRC_DIR}/pattern_file.cpp -o ${BIN_DIR}/pattern_file.o
 
-${BIN_DIR}/rosa_sd: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
+${BIN_DIR}/rosa_sd2: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} \
-	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd \
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2 \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_sd_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
+${BIN_DIR}/rosa_sd2_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1\
-	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd_delta \
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
