@@ -60,7 +60,7 @@ select_support_dummy> // for pruned BWT
 >
 class rosa;
 
-#define TMP_CST_SUFFIX "tmp_fwd_cst4"
+#define TMP_CST_SUFFIX "tmp_fwd_cst8"
 #define TMP_CSA_SUFFIX "tmp_bwd_csa4"
 
 
@@ -88,7 +88,7 @@ class rosa
         typedef SelectSupport select_support_type;
         typedef WaveletTree wavelet_tree_type;
         typedef csa_wt<wt_huff<>,64000, 64000> tCsa;
-        typedef cst_sada<csa_wt<wt_huff<>,4, 64000>, lcp_dac<> > tCst;
+        typedef cst_sada<csa_wt<wt_rlmn<>,8, 256>, lcp_support_tree2<8> > tCst;
         typedef tCst::node_type node_type;
         typedef select_support_mcl<> bm_select_type;
         typedef rank_support_v5<10,2> bm_rank01_type;
