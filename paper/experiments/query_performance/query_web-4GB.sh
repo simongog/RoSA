@@ -13,10 +13,11 @@ pattern_len=20
 result_file="query_performance_web-4GB.txt"
 repetitions=5
 
+thresholds='4096 16384 65536'
 
 rm -f ${result_file}
 
-for threshold in 4096 16384 65536; do
+for threshold in ${thresholds}; do
 	for i in `seq 1 ${repetitions}`; do
 		for pattern_len in 4 10 20 40 100; do
 			for occ in "1 2" "8 12" "75 125" "750 1250" "7500 12500"; do 

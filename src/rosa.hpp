@@ -437,13 +437,13 @@ class rosa
         void construct_or_load_fwd_cst(tCst& cst, string file_name, string tmp_dir, bool delete_tmp) {
             ifstream tmp_fwd_cst_stream(file_name.c_str());
             if (!tmp_fwd_cst_stream) {
-                tMSS file_map;
                 if (util::verbose) {
                     cout<<"m_file_name="<<m_file_name<<endl;
                     cout<<"tmp_dir="<<tmp_dir<<endl;
                     cout<<"id="<<util::basename(m_file_name)<<endl;
                 }
-                construct_cst(m_file_name, cst, file_map, delete_tmp, tmp_dir, false, util::basename(m_file_name));
+                cache_config config(delete_tmp, tmp_dir, util::basename(m_file_name));
+                construct(cst, m_file_name.c_str(), config, 1);
                 util::store_to_file(cst, file_name.c_str());
             } else {
                 tmp_fwd_cst_stream.close();
@@ -463,8 +463,18 @@ class rosa
         void construct_or_load_bwd_csa(tCsa& bwd_csa, string file_name, string tmp_dir, bool delete_tmp) {
             ifstream tmp_bwd_csa_stream(file_name.c_str());
             if (!tmp_bwd_csa_stream) {
-                tMSS file_map;
-                construct_csa_of_reversed_text(m_file_name, bwd_csa, file_map, delete_tmp, tmp_dir, ("reversed_"+util::basename(m_file_name)).c_str());
+                string rev_file_name = m_file_name+"_rev";
+                ifstream rev_text_stream(rev_file_name.c_str());
+                if (!rev_text_stream) {
+                    int_vector<8> text;
+                    util::load_vector_from_file(text, m_file_name.c_str(), 1);
+                    for (size_type i=0, j=text.size()-1; i < j and j < text.size(); ++i, --j) {
+                        std::swap(text[i], text[j]);
+                    }
+                    util::store_to_plain_array<uint8_t>(text, rev_file_name.c_str());
+                }
+                cache_config config(delete_tmp, tmp_dir, (util::basename(rev_file_name)));
+                construct(bwd_csa, rev_file_name.c_str(), config, 1);
                 util::store_to_file(bwd_csa, file_name.c_str());
             } else {
                 if (util::verbose) {
@@ -661,7 +671,7 @@ class rosa
                 }
             }
             util::store_to_file(temp_bwt, tmp_file_name.c_str());
-            int_vector_file_buffer<8, size_type> temp_bwt_buf(tmp_file_name.c_str());
+            int_vector_file_buffer<8> temp_bwt_buf(tmp_file_name.c_str());
             util::assign(m_wt, wavelet_tree_type(temp_bwt_buf, cn));
             std::remove(tmp_file_name.c_str()); // remove file of BWT'
         }
@@ -681,7 +691,7 @@ class rosa
          *	\Time complexity
          *		\f$ \Order{n \log\sigma} \f$, where n is the length of the text.
          */
-        rosa(const char* file_name=NULL, size_type b=4000, bool output_tikz=false, bool delete_tmp=false,
+        rosa(const char* file_name=NULL, size_type b=4096, bool output_tikz=false, bool delete_tmp=false,
              const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_size(1024)
             ,bl(m_bl), bf(m_bf), wt(m_wt)
             ,bl_rank(m_bl_rank), bf_rank(m_bf_rank)
@@ -819,6 +829,39 @@ class rosa
             }
         }
 
+        //! List the occurrences of a pattern of length m
+        /*!
+         */
+        size_type locate(const unsigned char* pattern, size_type m, vector<size_type>& res)const {
+            res.resize(0);
+            // (1) query in-memory data structure
+            size_type lb, rb, d;
+            if (get_interval(pattern, m, lb, rb, d)) {
+                if (d == m) {  // the in-memory data structure answered the query
+                    // we have to get all blocks between lb and rb and output the positions
+                    if (util::verbose) {
+                        std::cout<<"answered in-memory"<<std::endl;
+                    }
+                    return get_all_occurences(d, lb, rb, res);
+                } else { // m > d
+                    // (2) query external memory data structure
+                    size_type bwd_id = get_bwd_id(lb, d);
+                    if (rb+1-lb == 1) {
+                        size_type sa = m_pointer[bwd_id];
+                        if (0 == match_pattern(pattern+d, m-d, sa+d)) {
+                            res.push_back(sa);
+                            return 1;
+                        }
+                    } else {
+                        size_type block_addr = m_pointer[bwd_id];
+                        return search_block(pattern+d, m-d, d, rb+1-lb, bwd_id, block_addr, &res);
+                    }
+                }
+            }
+            return 0;
+
+        }
+
         //! Count the number of occurrences of a pattern of length m
         /*!
          *  \param pattern 	A pointer to the start of the pattern.
@@ -875,10 +918,6 @@ class rosa
             return 0;
         }
 
-        // TODO: implement locate, take care of the case where the pattern does not reach the
-        // external index
-        //void locate()
-
         //! Match the pattern p reversed backwards against the pruned BWT until the interval <= b.
         /*! \param pattern  Pointer to the beginning of the pattern.
          *  \param m		The length of the pattern.
@@ -922,54 +961,98 @@ class rosa
             return true;
         }
 
-        //! Search for a pattern by binary search in a block
+        struct item {
+            size_type d, lb, rb;
+            item(size_type _d, size_type _lb, size_type _rb): d(_d), lb(_lb), rb(_rb) {};
+        };
+        struct block_item {
+            size_type block_addr, bwd_id, size;
+            block_item(size_type _block_addr, size_type _bwd_id, size_type _size):
+                block_addr(_block_addr), bwd_id(_bwd_id), size(_size) {};
+            bool operator<(const block_item& x)const {
+                if (block_addr != x.block_addr) return block_addr < x.block_addr;
+                if (bwd_id != x.bwd_id) return bwd_id < x.bwd_id;
+                return size < x.size;
+            }
+        };
+
+
+        //! Search for a pattern in the block
         /*!
-         * \param pattern    Pointer to the remaining pattern.
-         * \param m			 Number of not yet matched characters. Equals the length of the remaining pattern.
-         * \param depth 	 Number of characters matched so far.
-         * \param size		 Size of the lexicographic interval of the already matched prefix.
+         * \param d		 	 Number of characters matched so far.
+         * \param lb		 Left bound of the lexicographic interval of the already matched prefix.
+         * \param rb		 Right bound of the
          * \param bwd_id	 bwd_id of the matched prefix.
          * \param block_addr Start address of the block in the external index.
+         * \param locations  Pointer to a vector, where the locations should be stored.
+         * \param
          *
          * \par Time complexity
-         *		\f$ \Order{\log b} \f$ disk accesses
+         *		2 disk accesses
          */
-        size_type binary_search_block(const unsigned char* pattern, size_type m, size_type depth, size_type size,
-                                      size_type bwd_id, size_type block_addr)const {
-            disk_block db;
-            seekg(m_ext_idx, block_addr);
-            db.load(m_ext_idx);
-#ifdef OUTPUT_STATS
-            m_count_block_length += db.size();
-#endif
-            size_type delta_x = 0;
-            size_type delta_d = 0;
-            db.get_delta_x_and_d(bwd_id, delta_x, delta_d);
-            // do a binary search on the block for the pattern
-            // possible improvement: if match_pattern also returns the length of the length X of the longest matching prefix
-            //       of pattern with the text, then we can further speed up the computation
-            //       by limit the interval to the range where LCP[i] >= X
-            size_type lb = delta_x, rb = delta_x+size; // [lb..rb)
-            while (lb < rb) {
-                size_type mid = (lb+rb)/2;
-                int cmp =  match_pattern(pattern, m, db.sa[mid] + depth + delta_d);
-                if (0 == cmp) {
-                    size_type l=mid, r=mid;
-                    while (l > lb and db.lcp[l] >= (depth+m)+delta_d) {
-                        --l;
+        size_type get_all_occurences(size_type d, size_type lb, size_type rb, std::vector<size_type>& loc)const {
+            loc.resize(rb+1-lb);
+            size_t loc_idx = 0;
+            vector<block_item> res_block;
+            queue<item> q;
+            q.push(item(d, lb, rb));
+            size_type block_size_sum=0;
+            while (!q.empty()) {
+                item x = q.front();
+                q.pop();
+                if (x.rb - x.lb + 1 > m_b) {
+                    size_type k = 0;
+                    std::vector<unsigned char> cs(m_wt.sigma);
+                    std::vector<size_type> lb2(m_wt.sigma), rb2(m_wt.sigma);
+                    size_type lb1 = m_bl_rank(x.lb);
+                    size_type rb1 = m_bl_rank(x.rb+1);
+                    m_wt.interval_symbols(lb1, rb1, k, cs, lb2, rb2);
+                    for (size_type i=0; i<k; ++i) {
+                        lb = m_bf_select(m_cC[cs[i]] + lb2[i] + 1);
+                        rb = m_bf_select(m_cC[cs[i]] + rb2[i] + 1) - 1;
+                        q.push(item(x.d+1, lb, rb));
                     }
-                    while (r+1 < rb and db.lcp[r+1] >= (depth+m)+delta_d) {
-                        ++r;
+                } else {
+                    size_type bwd_id = get_bwd_id(x.lb, x.d);
+                    if (x.rb+1-x.lb == 1) {
+                        loc[loc_idx++] = m_pointer[bwd_id];
+                    } else {
+                        // push triple
+                        res_block.push_back(block_item(m_pointer[bwd_id], bwd_id, x.rb+1-x.lb));
+                        block_size_sum += x.rb+1-x.lb;
                     }
-                    return r-l+1;
-                } else if (cmp < 0) { // pattern is smaller than current suffix
-                    rb = mid;
-                } else { // pattern is greater than current suffix
-                    lb = mid+1;
                 }
             }
-            return 0;
+            if (util::verbose) {
+                cout<<"queue done"<<endl;
+            }
+            sort(res_block.begin(), res_block.end()); // sort according to block_addr
+            disk_block db;
+            for (size_t i=0; i < res_block.size(); ++i) {
+                if (0 == i or res_block[i-1].block_addr != res_block[i].block_addr) {
+                    if (util::verbose) {
+                        cout<<"i="<<i<<" res_block[i].block_addr="<<res_block[i].block_addr<<endl;
+                    }
+                    seekg(m_ext_idx, res_block[i].block_addr);
+                    db.load(m_ext_idx);
+                    if (util::verbose) {
+                        cout<<"i="<<i<<" block_loaded loc.size()="<<loc.size()<<" loc_idx="<<loc_idx<<endl;
+                    }
+                }
+                size_type delta_x = 0, delta_d = 0;
+                db.get_delta_x_and_d(res_block[i].bwd_id, delta_x, delta_d);
+                lb = delta_x;
+                rb = delta_x + res_block[i].size - 1;
+                for (size_type j=lb; j <= rb; ++j) {
+                    loc[loc_idx++] = db.sa[j];
+                }
+            }
+            if (util::verbose) {
+                cout<<"ready"<<endl;
+            }
+            return loc.size();
         }
+
 
         //! This class represents a half-blind suffix tree for a disk block.
         /*!
@@ -1159,12 +1242,13 @@ class rosa
          * \param size		 Size of the lexicographic interval of the already matched prefix.
          * \param bwd_id	 bwd_id of the matched prefix.
          * \param block_addr Start address of the block in the external index.
+         * \param locations  Pointer to a vector, where the locations should be stored.
          *
          * \par Time complexity
          *		2 disk accesses
          */
         size_type search_block(const unsigned char* pattern, size_type m, size_type depth, size_type size,
-                               size_type bwd_id, size_type block_addr)const {
+                               size_type bwd_id, size_type block_addr, std::vector<size_type>* loc=NULL)const {
             if (util::verbose) {
                 std::cout<<"serach_block("<<pattern<<","<<m<<","<<depth<<","<<size<<","<<bwd_id<<","<<block_addr<<")\n";
             }
@@ -1195,6 +1279,11 @@ class rosa
             return size;
 #endif
             if (size > 0 and 0 ==  match_pattern(pattern, m, db.sa[lb] + depth + delta_d)) {
+                if (NULL != loc) {
+                    for (size_type i=lb; i<=rb; ++i) {
+                        loc->push_back(db.sa[i]);
+                    }
+                }
                 return size; // return the interval size
             } else {
                 return 0;
@@ -1278,7 +1367,7 @@ class rosa
 
         //! Get the size of the external part in megabytes.
         double get_ext_idx_size_in_mega_byte() {
-            return ((double)get_file_size(get_ext_idx_filename().c_str()))/ (1024.0*1024.0);
+            return ((double)util::get_file_size(get_ext_idx_filename().c_str()))/ (1024.0*1024.0);
         }
 
         //! Writes the in-memory part of the index into the output stream.

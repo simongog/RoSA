@@ -233,14 +233,12 @@ void benchmark(const char* file_name, size_type b, const char* pattern_file_name
     }
 }
 
-
-
 void display_usage(char* command)
 {
     cout << "usage of " << command << endl;
     cout << "  " << command << " --input_file=[input_file] "<< endl;
     cout << " input_file       : file name of the input text" << endl;
-    cout << " threshold        : block size threshold b; default=4000" << endl;
+    cout << " threshold        : block size threshold b; default=4096" << endl;
     cout << " generate_index   : generates the index" << endl;
     cout << " generate_patterns: generate a pattern file; default=OFF" << endl;
     cout << " pattern_len      : length of each generated pattern; default=20" << endl;
@@ -268,7 +266,6 @@ void display_usage(char* command)
     cout << "  pattern generation process." << endl;
 }
 
-
 int main(int argc, char* argv[])
 {
     std::string input_file_name = "";
@@ -276,7 +273,7 @@ int main(int argc, char* argv[])
     std::string tmp_file_dir = "./";
     std::string output_dir = "./";
 
-    size_type b = 4000;
+    size_type b = 4096;
     size_type plen = 20;
     size_type pno  = 100;
     size_type swapno  = 0;
@@ -383,7 +380,7 @@ int main(int argc, char* argv[])
 
     util::verbose = verbose;
 
-    size_type input_size = (size_type)get_file_size(input_file_name.c_str());
+    size_type input_size = (size_type)util::get_file_size(input_file_name.c_str());
     if (b > input_size) {
         std::cerr << "ERROR: input size ("<< input_size <<") is smaller than the block threshold b=" << b << endl;
         return 1;
@@ -395,14 +392,6 @@ int main(int argc, char* argv[])
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(),b, output_dir.c_str());
         std::cerr << "load index from file " << int_idx_file_name << std::endl;
         util::load_from_file(index, int_idx_file_name.c_str());
-        if (interactive) {
-            std::cout<<"Entering interactive mode. Please enter patterns or Ctrl-D to exit."<<std::endl;
-            std::string s;
-            while (std::cin>>s) {
-                size_type cnt = index.count((const unsigned char*)s.c_str(), s.length(), false);
-                std::cout<<">>>>> pattern occurs "<<cnt<<" times"<<std::endl;
-            }
-        }
         return 0;
     }
 
@@ -410,6 +399,37 @@ int main(int argc, char* argv[])
         tIDX index;
         generate_index(index, input_file_name.c_str(), b, true, true, tmp_file_dir.c_str(), output_dir.c_str());
         return 0;
+    }
+
+    if (interactive) {
+        tIDX index;
+        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, output_dir.c_str());
+        if (util::load_from_file(index, int_idx_file_name.c_str())) {
+            std::cout<<"Entering interactive mode. Please enter patterns or Ctrl-D to exit."<<std::endl;
+            std::string s;
+            int mode=0;
+            std::cout<<"Enter \"l\" for location mode and press any other key for counting mode."<<std::endl;
+            std::cout<<"Followed by enter"<<std::endl;
+            std::getline(cin, s);
+            if ("l" == s) {
+                mode = 1;
+            }
+            while (std::getline(cin, s)) {
+                if (0 == mode) {
+                    size_type cnt = index.count((const unsigned char*)s.c_str(), s.size(), false);
+                    std::cout<<">>>>> pattern occurs "<<cnt<<" times"<<std::endl;
+                } else {
+                    std::vector<size_type> res;
+                    size_type cnt = index.locate((const unsigned char*)s.c_str(), s.size(), res);
+                    std::cout<<">>>>> pattern occurs "<<cnt<<" times"<<std::endl;
+                    std::cout<<"locations:";
+                    for (size_t i=0; i<res.size(); ++i) cout << " " << res[i];
+                    cout << endl;
+                }
+            }
+            return 0;
+        } else
+            return 1;
     }
 
     if (delete_index_file) {

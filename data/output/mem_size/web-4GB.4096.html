@@ -81,7 +81,24 @@ var spaceJSON = {"class_name":"rosa","name":"","size":"105340477","children":[{"
       })
       .on("click", click);
 
-  textEnter.append("title").text(function(d) { return d.name + ' ' + sizeMB(d) });
+//  textEnter.append("title").text(function(d) { return d.name + ' ' + sizeMB(d) });
+
+//  var text2 = vis.selectAll("text2").data(nodes);
+//  var text2Enter = text2.enter().append(text2)
+//	  .style("opacity",0.5)
+//	  .style("fill","#000")
+//	  .style("fontSize","16pt")
+//      .attr("text-anchor", function(d) {
+//        return x(d.x + d.dx / 2) > Math.PI ? "end" : "start";
+//      })
+//      .attr("dy", ".2em")
+//      .attr("transform", function(d) {
+//        var multiline = (d.name || "").split(" ").length > 1,
+//            angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90,
+//            rotate = angle + (multiline ? -.5 : 0);
+//        return "rotate(" + rotate + ")translate(" + (y(d.y) + p) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
+//     })
+//  text2Enter.append("title").text(function(d) { return sizeMB(d) });
 
   textEnter.append("tspan")
       .attr("x", 0)

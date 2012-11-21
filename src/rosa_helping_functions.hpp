@@ -111,7 +111,7 @@ void calculate_reducible_graph(const tCst& cst, const bit_vector& bf, size_type 
                 it.skip_subtree();
                 unsigned char c1;
                 size_type lb = cst.lb(v), rb = cst.rb(v) + 1;
-                size_type rank1 = cst.csa.wavelet_tree.rank_ith_symbol(lb, c1);
+                size_type rank1 = cst.csa.wavelet_tree.inverse_select(lb, c1);
                 size_type rank2 = cst.csa.rank_bwt(rb, c1);
                 if (rank2-rank1 == rb-lb) {
                     if (rb-lb == 1) {
@@ -134,7 +134,7 @@ void calculate_reducible_graph(const tCst& cst, const bit_vector& bf, size_type 
 
                             lb = bf_select(dest_block_id+1);
                             rb = bf_select(dest_block_id+2);
-                            rank1 = cst.csa.wavelet_tree.rank_ith_symbol(lb, c1);
+                            rank1 = cst.csa.wavelet_tree.inverse_select(lb, c1);
                             rank2 = cst.csa.rank_bwt(rb, c1);
                         } //   v_block[dest_block] not already defined and block is reducible
                         while (v_block[dest_block_id].dest_block == 0 and rank2-rank1 == rb-lb);
