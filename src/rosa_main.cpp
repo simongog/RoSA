@@ -261,6 +261,7 @@ void display_usage(char* command)
     cout << " delete_index_file: delete the generated index files; default=0" << endl;
     cout << " verbose          : activate verbose mode." << endl;
     cout << " interactive      : enter interactive mode after creating/loading the index." << endl;
+    cout << " greedy           : do a greedy parse." << endl;
     cout << endl;
     cout << "* if pattern_min_occ=pattern_max_occ=0 this restriction is not used in the " << endl;
     cout << "  pattern generation process." << endl;
@@ -295,6 +296,7 @@ int main(int argc, char* argv[])
     size_type max_k = 0;
     int verbose = false;
     int interactive = 0;
+    int greedy = 0;
 
     int c;
     while (1) {
@@ -324,6 +326,7 @@ int main(int argc, char* argv[])
             {"delete_index_file", no_argument, &delete_index_file, 1},
             {"verbose", no_argument, &verbose, 1},
             {"interactive",no_argument, &interactive, 1},
+            {"greedy",no_argument, &greedy, 1},
             {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -386,6 +389,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+
     if (do_generate_index) {
         tIDX index;
         generate_index(index, input_file_name.c_str(), b, false, delete_tmp_file, tmp_file_dir.c_str(), output_dir.c_str());
@@ -437,7 +441,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_mem_info or output_statistics or output_Hk or output_trie_nodes) {
+    if (output_mem_info or output_statistics or output_Hk or output_trie_nodes or greedy) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
@@ -451,6 +455,15 @@ int main(int argc, char* argv[])
                 index.text_statistics(max_k);
             } else if (output_trie_nodes) {
                 index.trie_nodes();
+            } else if (greedy) {
+                size_type max_bwd_id = 0;
+                size_type factors = index.greedy_parse(tmp_file_dir, max_bwd_id);
+                std::cout << "factors = "<<factors << std::endl;
+                std::cout << "avg factor length = "<<((double)index.size())/factors<< std::endl;
+                std::cout << "max_bwd_id = " << max_bwd_id << std::endl;
+                int bpf = bit_magic::l1BP(max_bwd_id)+1;
+                std::cout << "bit_magic::l1BP(max_bwd_id)+1="<< bpf << std::endl;
+                std::cout << "factorization size in MB:"<< ((double)factors*bpf)/(8*(1<<20)) << std::endl;
             }
         } else {
             std::cerr << "ERROR: could not open file "<< int_idx_file_name << endl;

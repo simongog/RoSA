@@ -7,11 +7,11 @@ CFLAGS=-O3 -funroll-loops -msse4.2 -DMEM_INFO -DOUTPUT_STATS -DMEM_INFO -DWRITE_
 all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_helping_functions.o \
 	 ${BIN_DIR}/pattern_file.o \
-	 ${BIN_DIR}/rosa_sd2 \
-	 ${BIN_DIR}/rosa_sd2_delta \
-	 ${BIN_DIR}/rosa_sd_load_only\
-	 ${BIN_DIR}/rosa_sd_create_only\
-	 ${BIN_DIR}/rosa_sd_search_block_only
+	 ${BIN_DIR}/rosa_sd2_delta 
+#	 ${BIN_DIR}/rosa_sd2\ 
+#	 ${BIN_DIR}/rosa_sd_load_only\
+#	 ${BIN_DIR}/rosa_sd_create_only\
+#	 ${BIN_DIR}/rosa_sd_search_block_only
 #	 ${BIN_DIR}/rosa_bv \
 #	 ${BIN_DIR}/rosa_rrr \
 #	 ${BIN_DIR}/rosa_rrr63 \

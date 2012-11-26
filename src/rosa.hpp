@@ -26,6 +26,7 @@
 #include <queue>   // for construction
 #include <iomanip> // for setw
 #include <map>	   // for a file map
+#include <stack>
 
 using namespace sdsl;
 using std::cout;
@@ -47,8 +48,8 @@ template<class BitVector = bit_vector // for bl and bf
 ,class SelectSupport = typename BitVector::select_1_type // for bf
 ,class WaveletTree = wt_huff<bit_vector,
 rank_support_v5<>,
-select_support_dummy,
-select_support_dummy> // for pruned BWT
+select_support_mcl<1>,
+select_support_mcl<0> > // for pruned BWT
 #if LCP_WRAP == 0
 ,class LcpSerializeWrapper = int_vector_serialize_vbyte_wrapper<> // int_vector_serialize_wrapper<>
 ,class LcpLoadWrapper = int_vector_load_vbyte_wrapper<>  // int_vector_load_wrapper<>
@@ -82,16 +83,17 @@ template<class BitVector
 class rosa
 {
     public:
-        typedef int_vector<>::size_type size_type;
-        typedef BitVector bit_vector_type;
-        typedef RankSupport rank_support_type;
-        typedef SelectSupport select_support_type;
-        typedef WaveletTree wavelet_tree_type;
-        typedef csa_wt<wt_huff<>,64000, 64000> tCsa;
-        typedef cst_sada<csa_wt<wt_rlmn<>,8, 256>, lcp_support_tree2<8> > tCst;
-        typedef tCst::node_type node_type;
-        typedef select_support_mcl<> bm_select_type;
-        typedef rank_support_v5<10,2> bm_rank01_type;
+        typedef int_vector<>::size_type 									size_type;
+        typedef BitVector 													bit_vector_type;
+        typedef RankSupport 												rank_support_type;
+        typedef SelectSupport 												select_support_type;
+        typedef WaveletTree 												wavelet_tree_type;
+        typedef csa_wt<wt_huff<>,64000, 64000> 								tCsa;
+        typedef cst_sada<csa_wt<wt_rlmn<>,8, 256>, lcp_support_tree2<8> > 	tCst;
+        typedef tCst::node_type 											node_type;
+        typedef select_support_mcl<>  										bm_select_1_type;
+        typedef select_support_mcl<0> 										bm_select_0_type;
+        typedef rank_support_v5<10,2> 										bm_rank10_type;
     private:
         size_type				m_n;  // original text length
         size_type 				m_b;  // block size
@@ -101,11 +103,15 @@ class rosa
         rank_support_type 		m_bl_rank; // rank support for m_bl
         rank_support_type 		m_bf_rank; // rank support for m_bf
         select_support_type 	m_bf_select; // select support for m_bf
+        select_support_type     m_bl_select; // select support for m_bl
         wavelet_tree_type		m_wt; // wavelet tree for pruned BWT
         int_vector<64>			m_cC; // contains for each character c the m_rank_bf(C[c])
+        int_vector<8>			m_char2comp;
+        int_vector<8>			m_comp2char;
         bit_vector				m_bm; // bit sequence to map from backward intervals to blocks in the external part
-        bm_select_type			m_bm_select; //
-        bm_rank01_type			m_bm_rank01; //
+        bm_select_1_type		m_bm_1_select; //
+        bm_select_0_type		m_bm_0_select; //
+        bm_rank10_type			m_bm_10_rank; //
         int_vector<>			m_min_depth;
         int_vector<>			m_pointer; // address of block [sp..ep] on disk,
         // if ep-sp > 0 or SA[sp] if sp=ep.
@@ -375,9 +381,11 @@ class rosa
         const rank_support_type& bl_rank;		//!< Rank support for bl.
         const rank_support_type& bf_rank;		//!< Rank support for bf.
         const select_support_type& bf_select;	//!< Select support for bf.
+        const select_support_type& bl_select;	//!< Select support for bl.
         const bit_vector& bm;					//!< Bit vector to map from intervals in the backward index to blocks in the external part.
-        const select_support_mcl<>& bm_select;  //!< Select support for bm.
-        const bm_rank01_type& bm_rank01;		//!< Rank support for the bit-pattern 01 in bm.
+        const bm_select_1_type& 	bm_1_select;//!< Select support for ones in bm.
+        const bm_select_0_type& 	bm_0_select;//!< Select support for zeros in bm.
+        const bm_rank10_type& bm_10_rank;		//!< Rank support for the bit-pattern 01 in bm.
         const int_vector<>& min_depth;			//!<
         const int_vector<>& pointer;			//!< Array of pointers into the external structures (blocks or suffix array).
         const string& file_name;				//!< File name of the original text string.
@@ -454,6 +462,10 @@ class rosa
             }
         }
 
+        string get_rev_file_name(const string& file_name) {
+            return file_name+"_rev";
+        }
+
         /*!
          *  \param bwd_csa		CSA which should be loaded or constructed.
          *  \param file_name	Location of the CSA on disk.
@@ -463,7 +475,7 @@ class rosa
         void construct_or_load_bwd_csa(tCsa& bwd_csa, string file_name, string tmp_dir, bool delete_tmp) {
             ifstream tmp_bwd_csa_stream(file_name.c_str());
             if (!tmp_bwd_csa_stream) {
-                string rev_file_name = m_file_name+"_rev";
+                string rev_file_name = get_rev_file_name(m_file_name);
                 ifstream rev_text_stream(rev_file_name.c_str());
                 if (!rev_text_stream) {
                     int_vector<8> text;
@@ -536,6 +548,7 @@ class rosa
             util::assign(m_bf, bf); if (util::verbose) std::cout << "m_bf was assigned.\n";
             util::init_support(m_bf_rank, &m_bf); 		if (util::verbose) std::cout << "m_bf_rank was assigned.\n";
             util::init_support(m_bf_select, &m_bf);		if (util::verbose) std::cout << "m_bf_select was assigned.\n";
+            util::init_support(m_bl_select, &m_bl);		if (util::verbose) std::cout << "m_bl_select was assigned.\n";
         }
 
         void calculate_bm_and_min_depth(const vector<block_info>& map_info, const size_type f_k) {
@@ -557,10 +570,11 @@ class rosa
                 m_bm[p++] = 1; // mark the i-th entries in m_bm
             }
             if (util::verbose) cout << "m_mb was calculated.\n";
-            util::init_support(m_bm_select, &m_bm); if (util::verbose) cout<<"m_bm_select was assigned.\n";
-            util::init_support(m_bm_rank01, &m_bm); if (util::verbose) cout<<"m_bm_rank01 was assigned.\n";
+            util::init_support(m_bm_1_select, &m_bm); if (util::verbose) cout<<"m_bm_1_select was assigned.\n";
+            util::init_support(m_bm_0_select, &m_bm); if (util::verbose) cout<<"m_bm_0_select was assigned.\n";
+            util::init_support(m_bm_10_rank, &m_bm); if (util::verbose) cout<<"m_bm_10_rank was assigned.\n";
             m_min_depth.set_int_width(bit_magic::l1BP(max_min_depth)+1);
-            m_min_depth.resize(m_bm_rank01(m_bm.size()));
+            m_min_depth.resize(m_bm_10_rank(m_bm.size()));
             // insert min_depth information
             for (size_type i=1, j=0, k=0, end=m_bf_rank(m_bf.size()); i < end; ++i) {
                 size_type lb = m_bf_select(i);
@@ -580,7 +594,10 @@ class rosa
             if (util::verbose) cout << "m_min_depth was calculated.\n";
         }
 
-        void calculate_bwd_id_and_fill_singleton_pointers(const tCst::csa_type csa, const vector<block_info>& map_info, const bit_vector& fwd_bf, vector<block_node>& v_block) {
+        void calculate_bwd_id_and_fill_singleton_pointers(const tCst::csa_type csa,
+                const vector<block_info>& map_info,
+                const bit_vector& fwd_bf,
+                vector<block_node>& v_block) {
             rank_support_v5<> fwd_bf_rank(&fwd_bf);
             for (size_t bwd_id=0; bwd_id <map_info.size(); ++bwd_id) {
                 size_type fwd_lb = map_info[bwd_id].fwd_lb;
@@ -594,7 +611,9 @@ class rosa
             if (util::verbose) cout << "fwd_id <-> bwd_id mapping was calculated.\n";
         }
 
-        void calculate_headers(const vector<block_node>& v_block, const vector<block_info>& map_info, vector<vector<header_item> >& header_of_external_block) {
+        void calculate_headers(const vector<block_node>& v_block,
+                               const vector<block_info>& map_info,
+                               vector<vector<header_item> >& header_of_external_block) {
             for (size_t fwd_id=0; fwd_id < v_block.size(); ++fwd_id) {
                 size_type bwd_id = v_block[fwd_id].bwd_id;
                 if (map_info[bwd_id].size > 1) {
@@ -607,7 +626,9 @@ class rosa
             if (util::verbose) cout << "Header for external block calculated.\n";
         }
 
-        void write_external_blocks_and_pointers(const tCst cst, const bit_vector& fwd_bf, const vector<block_node>& v_block,
+        void write_external_blocks_and_pointers(const tCst cst,
+                                                const bit_vector& fwd_bf,
+                                                const vector<block_node>& v_block,
                                                 vector<vector<header_item> >& header_of_external_block) {
             size_type total_header_in_bytes = 0;
             size_type ext_idx_size_in_bytes = 0;
@@ -655,9 +676,9 @@ class rosa
 
         void init_bl_rank_and_cC(const tCsa& csa) {
             util::init_support(m_bl_rank, &m_bl);
-            m_cC = int_vector<64>(256,0);  // condensed C
-            for (size_type i=0; i<csa.sigma; ++i) {
-                m_cC[csa.comp2char[i]] = m_bf_rank(csa.C[i]);
+            m_cC = int_vector<64>(257,0);  // condensed C
+            for (size_type i=0; i <= csa.sigma; ++i) {
+                m_cC[i] = m_bf_rank(csa.C[i]);
             }
         }
 
@@ -695,8 +716,12 @@ class rosa
              const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_size(1024)
             ,bl(m_bl), bf(m_bf), wt(m_wt)
             ,bl_rank(m_bl_rank), bf_rank(m_bf_rank)
-            ,bf_select(m_bf_select), bm(m_bm)
-            ,bm_select(m_bm_select), bm_rank01(m_bm_rank01)
+            ,bf_select(m_bf_select)
+            ,bl_select(m_bl_select)
+            ,bm(m_bm)
+            ,bm_1_select(m_bm_1_select)
+            ,bm_0_select(m_bm_0_select)
+            ,bm_10_rank(m_bm_10_rank)
             ,min_depth(m_min_depth), pointer(m_pointer)
             ,file_name(m_file_name)
             ,output_dir(m_output_dir)
@@ -739,6 +764,8 @@ class rosa
             write_R_output("bwd_csa","construct","begin");
             construct_or_load_bwd_csa(bwd_csa, bwd_csa_file_name, tmp_dir, delete_tmp);
             write_R_output("bwd_csa","construct","end");
+            m_comp2char = bwd_csa.comp2char;
+            m_char2comp = bwd_csa.char2comp;
 //			(4) Create m_bl, m_bf and the mapping between fwd_ids and bwd_ids
             vector<block_info> map_info;
             write_R_output("bl,bf and bwd_id<->fwd_id mapping","construct","begin");
@@ -808,13 +835,13 @@ class rosa
          *		 \f$ \Order{1} \f$
          */
         size_type get_bwd_id(size_type lb, size_type depth) const {
-            if (util::verbose) {
-                std::cout<<"get_bwd_id("<<lb<<","<<depth<<")\n";
-            }
-            size_type run_nr = m_bf_rank(lb);
+            /*            if (util::verbose) {
+                            std::cout<<"get_bwd_id("<<lb<<","<<depth<<")\n";
+                        }
+            */            size_type run_nr = m_bf_rank(lb);
             size_type run_pos = 0;
             if (run_nr > 0) {
-                run_pos = m_bm_select(run_nr)+1;
+                run_pos = m_bm_1_select(run_nr)+1;
             }
             // optimization for the special case when the run is of size 1
             // m_mb[run_pos-1..run_pos] = 10
@@ -824,7 +851,7 @@ class rosa
                 // => the id is X-1
                 return run_pos - run_nr;
             } else { // i.e. m_mb[run_pos-1..run_pos+1] = 100...
-                size_type min_depth = m_min_depth[m_bm_rank01(run_pos+1)];
+                size_type min_depth = m_min_depth[m_bm_10_rank(run_pos+1)];
                 return run_pos - run_nr + (depth-min_depth);
             }
         }
@@ -940,7 +967,7 @@ class rosa
             while (d < m and rb-lb+1 > m_b) {
                 if (util::verbose) {
                     std::cout<<d<<"-["<<lb<<","<<rb<<"]"<<" b="<<m_b<<std::endl;
-                    std::cout<<"c="<< *cp <<" m_cC["<<*cp<<"]="<<m_cC[*cp]<<std::endl;
+                    std::cout<<"c="<< *cp <<" m_cC[m_char2comp["<<*cp<<"]]="<<m_cC[m_char2comp[*cp]]<<std::endl;
                 }
                 size_type lb1 = m_bl_rank(lb);
                 size_type rb1 = m_bl_rank(rb+1);
@@ -952,13 +979,108 @@ class rosa
                     return false;
                 }
                 ++d; // we have match another character
-                lb = m_bf_select(m_cC[c] + lb2 + 1);
-                rb = m_bf_select(m_cC[c] + rb2 + 1) - 1;
+                lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
+                rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
 #ifdef OUTPUT_STATS
                 ++m_count_int_steps;
 #endif
             }
             return true;
+        }
+
+        void extract_factor(size_type bwd_id)const {
+            size_type zero_pos	= m_bm_0_select(bwd_id+1);
+            size_type ones 		= zero_pos - bwd_id; // ones in bm[0..zero_pos)
+            size_type depth_idx = m_bm_10_rank(zero_pos+1);
+            size_type depth		= m_min_depth[depth_idx];
+            if (ones) {
+                depth += zero_pos - 1 - m_bm_1_select(ones);
+            } else {
+                depth += zero_pos - 1;
+            }
+            size_type lb		= m_bf_select(ones + 1);
+            unsigned char c = '\0';
+            stack<unsigned char> factor;
+            for (size_type i=0, _lb = lb; i < depth; ++i) {
+                cout << "..." << (char)get_ith_character_of_the_first_row(_lb)<<endl;
+                c = get_ith_character_of_the_first_row(_lb);
+                factor.push(c);
+                size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
+                size_type cpos   = m_wt.select(c_rank, c);
+                _lb = m_bl_select(cpos+1);
+            }
+
+            size_type rb = m_n-1;
+            while (!factor.empty()) {
+                size_type rb1 = m_bl_rank(rb+1);
+                c = factor.top(); factor.pop();
+                size_type rb2 = m_wt.rank(rb1, c);
+                rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
+            }
+            cout<<"extract_factor("<<bwd_id<<")="<<depth<<"-["<<lb<<","<<rb<<"]"<<endl;
+        }
+
+        unsigned char get_ith_character_of_the_first_row(size_type i)const {
+            size_type ii = m_bf_rank(i);
+            if (m_wt.sigma < 1000) {
+                size_type res = 1;
+                while (m_cC[res] <= ii) {
+                    ++res;
+                }
+                return m_comp2char[res-1];
+            }
+        }
+
+        size_type size()const {
+            return m_n;
+        }
+
+        size_type greedy_parse(string tmp_dir, size_type& max_bwd_id) {
+            if (m_b >= m_n) {
+                throw std::logic_error("greedy_parse: m_b="+util::to_string(m_b)+" >= "+util::to_string(m_b)+"=m_n");
+            }
+            max_bwd_id = 0;
+            cache_config config(false, tmp_dir, util::basename(m_file_name));
+            int_vector<8> text;
+            util::load_from_file(text, util::cache_file_name(constants::KEY_TEXT, config).c_str());
+            if (util::verbose) {
+                cout<<"greedy_parse: loaded text"<<endl;
+            }
+            size_type factors = 0;
+            for (size_type i=text.size(), lb=0, rb=m_n-1, d=0; i>0; --i) {
+                size_type lb1 = m_bl_rank(lb);
+                size_type rb1 = m_bl_rank(rb+1);
+//				uint8_t c = text[i-1];
+                uint8_t c = text[text.size()-i];
+                if (i > text.size()-100)
+                    cout<<"parse i="<<i<<" text[text.size()-i]="<<(char)c<<endl;
+                size_type lb2 = m_wt.rank(lb1, c);
+                size_type rb2 = m_wt.rank(rb1, c);
+                if (lb2 == rb2) {
+                    i = i+1;
+                    ++factors;
+                    if (util::verbose and factors<10) {
+                        cout<<"*i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"]"<<endl;
+                    }
+                    lb = 0; rb=m_n-1; d=0;
+                    throw std::logic_error("greedy_parse: parse not possible with condensed BWT");
+                } else {
+                    ++d; // we have match another character
+                    lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
+                    rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
+                    if (rb-lb+1 <= m_b) {
+                        size_type bwd_id = get_bwd_id(lb, d);
+                        if (bwd_id > max_bwd_id) max_bwd_id = bwd_id;
+                        ++factors;
+                        if (util::verbose and factors<10) {
+                            cout<<"i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"]"<<endl;
+                            extract_factor(bwd_id);
+                        }
+                        lb = 0; rb=m_n-1; d=0;
+                    }
+                }
+            }
+            return factors;
         }
 
         struct item {
@@ -1008,8 +1130,8 @@ class rosa
                     size_type rb1 = m_bl_rank(x.rb+1);
                     m_wt.interval_symbols(lb1, rb1, k, cs, lb2, rb2);
                     for (size_type i=0; i<k; ++i) {
-                        lb = m_bf_select(m_cC[cs[i]] + lb2[i] + 1);
-                        rb = m_bf_select(m_cC[cs[i]] + rb2[i] + 1) - 1;
+                        lb = m_bf_select(m_cC[m_char2comp[cs[i]]] + lb2[i] + 1);
+                        rb = m_bf_select(m_cC[m_char2comp[cs[i]]] + rb2[i] + 1) - 1;
                         q.push(item(x.d+1, lb, rb));
                     }
                 } else {
@@ -1384,11 +1506,15 @@ class rosa
             written_bytes += m_bl_rank.serialize(out, child, "bl_rank");
             written_bytes += m_bf_rank.serialize(out, child, "bl_select");
             written_bytes += m_bf_select.serialize(out, child, "bf_select");
+            written_bytes += m_bl_select.serialize(out, child, "bl_select");
             written_bytes += m_wt.serialize(out, child, "wt");
             written_bytes += m_cC.serialize(out, child, "cC");
+            written_bytes += m_char2comp.serialize(out, child, "char2comp");
+            written_bytes += m_comp2char.serialize(out, child, "comp2char");
             written_bytes += m_bm.serialize(out, child, "bm");
-            written_bytes += m_bm_select.serialize(out, child, "select");
-            written_bytes += m_bm_rank01.serialize(out, child, "rank01");
+            written_bytes += m_bm_1_select.serialize(out, child, "bm_1_select");
+            written_bytes += m_bm_0_select.serialize(out, child, "bm_0_select");
+            written_bytes += m_bm_10_rank.serialize(out, child, "bp_01_rank");
             written_bytes += m_min_depth.serialize(out, child, "min_depth");
             written_bytes += m_pointer.serialize(out, child, "pointer");
             written_bytes += util::write_member(m_file_name, out, child, "file_name");
@@ -1409,11 +1535,15 @@ class rosa
             m_bl_rank.load(in, &m_bl);
             m_bf_rank.load(in, &m_bf);
             m_bf_select.load(in, &m_bf);
+            m_bl_select.load(in, &m_bl);
             m_wt.load(in);
             m_cC.load(in);
+            m_char2comp.load(in);
+            m_comp2char.load(in);
             m_bm.load(in);
-            m_bm_select.load(in, &m_bm);
-            m_bm_rank01.load(in, &m_bm);
+            m_bm_1_select.load(in, &m_bm);
+            m_bm_0_select.load(in, &m_bm);
+            m_bm_10_rank.load(in, &m_bm);
             m_min_depth.load(in);
             m_pointer.load(in);
             util::read_member(m_file_name, in);
