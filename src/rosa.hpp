@@ -206,16 +206,18 @@ class rosa
                         m_lcp[i-lb] = cst.lcp[i];
                     }
                     calculate_bit_lcp(m_lcp, m_sa, text, cst, lb);
+/*					
                     if (util::verbose) {
                         std::cout << "[" << lb << "," << rb << "]" << std::endl;
                         std::cout << "LCP ="; for (size_type i=0; i<m_lcp.size(); ++i) {
                             std::cout << " " << m_lcp[i];
                         }; std::cout << std::endl;
                     }
+*/					
                     calculate_bp(m_bp_ct, m_lcp);
                     util::bit_compress(m_sa);			   // bit compress suffix array values
                     calculate_relative_bit_lcp(m_lcp, 0, m_lcp.size(), 0);
-
+/*
                     if (util::verbose) {
                         std::cout << "[" << lb << "," << rb << "]" << std::endl;
                         std::cout << "SA ="; for (size_type i=0; i<m_sa.size(); ++i) {
@@ -225,6 +227,7 @@ class rosa
                             std::cout << " " << m_lcp[i];
                         }; std::cout << std::endl;
                     }
+*/					
                 }
 
                 template<class rac>
@@ -880,7 +883,7 @@ class rosa
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (0 == match_pattern(pattern+d, m-d, sa+d)) {
+                        if (match_pattern(pattern+d, m-d, sa+d)) {
                             res.push_back(sa);
                             return 1;
                         }
@@ -1441,7 +1444,7 @@ class rosa
 #if defined BENCHMARK_LOAD_ONLY || defined BENCHMARK_CREATE_ONLY || defined BENCHMARK_SEARCH_BLOCK_ONLY
             return size;
 #endif
-            if (size > 0 and 0 ==  match_pattern(pattern, m, db.sa[lb] + depth + delta_d)) {
+            if (size > 0 and match_pattern(pattern, m, db.sa[lb] + depth + delta_d)) {
                 if (NULL != loc) {
                     for (size_type i=lb; i<=rb; ++i) {
                         loc->push_back(db.sa[i]);
@@ -1454,43 +1457,23 @@ class rosa
 
         }
 
-
-
-        //! Check if pattern is a prefix of the suffix starting at position text_offset in T.
-        /*!
-         *  \param pattern		A pointer to the start of the pattern.
-         *	\param m			Length of the pattern.
-         *  \param text_offset	Starting position in the text.
-         *  \sa match_pattern
-         *	\par Time complexity
-         *		\f$  \Order{m} \f$ steps and one disk access
-         */
-        int match_pattern(const unsigned char* pattern, size_type m, size_type text_offset)const {
-            size_type matched = 0;
-            return match_pattern(pattern, m, text_offset, matched);
-        }
-
         //! Check if pattern is a prefix of the suffix starting at text_offset in T.
         /*! \param pattern		A pointer to the start of the pattern.
          *  \param m			Length of the pattern.
          *  \param text_offset	Starting position in the text.
-         *  \return				0 if the pattern is a prefix of the suffix starting
-         *                      at text_offset in T, a value smaller 0 if the pattern is lex.
-         *                      smaller and greater zero if the pattern is lex. greater
-         *                      than the suffix starting at text_offset in T.
+         *  \return				True if is a real pre
          *	\par Time complexity
          *		\f$  \Order{m} \f$ steps and one disk access
          */
-        int match_pattern(const unsigned char* pattern, size_type m, size_type text_offset, size_type& matched)const {
-            matched = 0;
+         bool match_pattern(const unsigned char* pattern, size_type m, size_type text_offset)const {
             if (0==m or text_offset >= m_n-1) {  // avoid disk access if m==0
-                return 1;
+                return false;
             }
             bool truncated = false;
             // should be: text_offset+m <= m_n-1
             if (text_offset + m > m_n-1) {   // m_n-1 text size without the sentinel character
                 m = (m_n-1) - text_offset;
-                truncated = true;
+				return false;
             }
             seekg(m_text, text_offset);
             while (m > 0) {
@@ -1498,22 +1481,15 @@ class rosa
                 m_text.read((char*)m_buf, len);
                 int res;
                 if (0 != (res=memcmp(pattern, m_buf, len))) {
-                    const unsigned char* p = pattern, *t = m_buf;
-                    while (*(p++)==(*t++)) {
-                        ++matched;
-                    }
-                    return res;
+					return false;
                 }
                 m -= len;
                 pattern += len;
-                matched += len;
             }
-            if (truncated) {
-                return 1; // we assume that the character behind the text is smaller than all other
-            } else {
-                return 0;
-            }
+            return true;
         }
+
+		
 
 
 
