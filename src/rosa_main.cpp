@@ -456,13 +456,12 @@ int main(int argc, char* argv[])
             } else if (output_trie_nodes) {
                 index.trie_nodes();
             } else if (greedy) {
-                size_type max_bwd_id = 0;
-                size_type factors = index.greedy_parse(tmp_file_dir, max_bwd_id);
+                size_type factors = index.greedy_parse(tmp_file_dir);
                 std::cout << "factors = "<<factors << std::endl;
                 std::cout << "avg factor length = "<<((double)index.size())/factors<< std::endl;
-                std::cout << "max_bwd_id = " << max_bwd_id << std::endl;
-                int bpf = bit_magic::l1BP(max_bwd_id)+1;
-                std::cout << "bit_magic::l1BP(max_bwd_id)+1="<< bpf << std::endl;
+				std::cout << "k="<< index.k-1 << std::endl;
+                int bpf = bit_magic::l1BP(index.k-1)+1;
+                std::cout << "bit_magic::l1BP(index.k-1)+1="<< bpf << std::endl;
                 std::cout << "factorization size in MB:"<< ((double)factors*bpf)/(8*(1<<20)) << std::endl;
             }
         } else {

@@ -38,6 +38,8 @@ using std::ifstream;
 using std::map;
 using std::ostream;
 
+const char KEY_GREEDY_FACTOR[] = "greedy_factor";
+
 #ifndef LCP_WRAP
 #define LCP_WRAP 0 //VBYTE
 #endif
@@ -390,7 +392,7 @@ class rosa
         const int_vector<>& pointer;			//!< Array of pointers into the external structures (blocks or suffix array).
         const string& file_name;				//!< File name of the original text string.
         const string& output_dir;				//!< Directory where the output is stored.
-        const string tmp_cst_suffix;			//!< File name of the temporary generated suffix tree.
+		const size_type& k;
 #ifdef OUTPUT_STATS
         const size_type& count_disk_access; 	//!< Counter for potential disk accesses.
         const size_type& count_gap_disk_access; //!< Counter for potential disk accesses caused by gaps in the fringe.
@@ -676,7 +678,7 @@ class rosa
 
         void init_bl_rank_and_cC(const tCsa& csa) {
             util::init_support(m_bl_rank, &m_bl);
-            m_cC = int_vector<64>(257,0);  // condensed C
+            m_cC = int_vector<64>(csa.sigma+1, 0);  // condensed C
             for (size_type i=0; i <= csa.sigma; ++i) {
                 m_cC[i] = m_bf_rank(csa.C[i]);
             }
@@ -725,6 +727,7 @@ class rosa
             ,min_depth(m_min_depth), pointer(m_pointer)
             ,file_name(m_file_name)
             ,output_dir(m_output_dir)
+			,k(m_k)						 
 #ifdef OUTPUT_STATS
             ,count_disk_access(m_count_disk_access)
             ,count_gap_disk_access(m_count_gap_disk_access)
@@ -821,6 +824,8 @@ class rosa
             construct_condensed_bwt(bwd_csa, tmp_dir);
             write_R_output("cBWT","construct","end");
             util::clear(bwd_csa);
+//			(13) greedy parse the text
+			greedy_parse(tmp_dir);
 //          (13) Open stream to text and external index for the matching
             open_streams();
         }
@@ -829,7 +834,7 @@ class rosa
         /*!
          *	\param lb		The left bound of the block in the backward index.
          *  \param depth	The depth of the block.
-         *  \return	The backward id of the block (in [0..k-1]).
+         *  \return	The backward id of the block (in [0..k-1], where k is the number of external blocks).
          *
          *	\par Time complexity
          *		 \f$ \Order{1} \f$
@@ -1002,8 +1007,7 @@ class rosa
             unsigned char c = '\0';
             stack<unsigned char> factor;
             for (size_type i=0, _lb = lb; i < depth; ++i) {
-                cout << "..." << (char)get_ith_character_of_the_first_row(_lb)<<endl;
-                c = get_ith_character_of_the_first_row(_lb);
+                c = first_row_character(_lb);
                 factor.push(c);
                 size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
                 size_type cpos   = m_wt.select(c_rank, c);
@@ -1014,73 +1018,110 @@ class rosa
             while (!factor.empty()) {
                 size_type rb1 = m_bl_rank(rb+1);
                 c = factor.top(); factor.pop();
+				cout<<c;
                 size_type rb2 = m_wt.rank(rb1, c);
                 rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
             }
+			cout<<endl;
             cout<<"extract_factor("<<bwd_id<<")="<<depth<<"-["<<lb<<","<<rb<<"]"<<endl;
         }
 
-        unsigned char get_ith_character_of_the_first_row(size_type i)const {
+        unsigned char first_row_character(size_type i)const {
             size_type ii = m_bf_rank(i);
-            if (m_wt.sigma < 1000) {
+            if (m_wt.sigma < 16) {
                 size_type res = 1;
-                while (m_cC[res] <= ii) {
+                while (res < m_wt.sigma and m_cC[res] <= ii) {
                     ++res;
                 }
                 return m_comp2char[res-1];
-            }
+            }else{
+				size_type upper_c = m_wt.sigma, lower_c = 0; // lower_c inclusive, uppper_c exclusive
+				size_type res = 0;
+				do{
+					res = (upper_c+lower_c)/2;
+					if ( ii < m_cC[res] ){
+						upper_c = res;
+					}else{
+						lower_c = res+1;
+					}
+				}while(ii < m_cC[res] or ii >= m_cC[res+1] );
+				return m_comp2char[res];
+			}
         }
 
         size_type size()const {
             return m_n;
         }
 
-        size_type greedy_parse(string tmp_dir, size_type& max_bwd_id) {
+		void write_factor(uint64_t factor, ofstream &out, uint8_t num_bytes){
+			if ( 8 == num_bytes ){
+				out.write((char*)&factor, num_bytes);
+			}else if( 4 == num_bytes){
+				uint32_t x = factor;
+				out.write((char*)&x, num_bytes);
+			}
+		}
+
+		/*!
+		 * Parse the text greedily into factors. Each factor (except the last one) corresponds to
+		 * a block prefix of an external block. 
+		 */
+        size_type greedy_parse(string tmp_dir) {
             if (m_b >= m_n) {
                 throw std::logic_error("greedy_parse: m_b="+util::to_string(m_b)+" >= "+util::to_string(m_b)+"=m_n");
             }
-            max_bwd_id = 0;
             cache_config config(false, tmp_dir, util::basename(m_file_name));
             int_vector<8> text;
             util::load_from_file(text, util::cache_file_name(constants::KEY_TEXT, config).c_str());
             if (util::verbose) {
                 cout<<"greedy_parse: loaded text"<<endl;
             }
-            size_type factors = 0;
-            for (size_type i=text.size(), lb=0, rb=m_n-1, d=0; i>0; --i) {
-                size_type lb1 = m_bl_rank(lb);
-                size_type rb1 = m_bl_rank(rb+1);
-//				uint8_t c = text[i-1];
-                uint8_t c = text[text.size()-i];
-                if (i > text.size()-100)
-                    cout<<"parse i="<<i<<" text[text.size()-i]="<<(char)c<<endl;
-                size_type lb2 = m_wt.rank(lb1, c);
-                size_type rb2 = m_wt.rank(rb1, c);
-                if (lb2 == rb2) {
-                    i = i+1;
-                    ++factors;
-                    if (util::verbose and factors<10) {
-                        cout<<"*i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"]"<<endl;
-                    }
-                    lb = 0; rb=m_n-1; d=0;
-                    throw std::logic_error("greedy_parse: parse not possible with condensed BWT");
-                } else {
-                    ++d; // we have match another character
-                    lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
-                    rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
-                    if (rb-lb+1 <= m_b) {
-                        size_type bwd_id = get_bwd_id(lb, d);
-                        if (bwd_id > max_bwd_id) max_bwd_id = bwd_id;
-                        ++factors;
-                        if (util::verbose and factors<10) {
-                            cout<<"i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"]"<<endl;
-                            extract_factor(bwd_id);
-                        }
-                        lb = 0; rb=m_n-1; d=0;
-                    }
-                }
-            }
-            return factors;
+
+			// file name for temporary 
+			string factor_file = tmp_dir+util::basename(m_file_name)+"_factors_"+util::to_string(util::get_pid())+"_"+util::to_string(util::get_id());
+			uint8_t num_bytes = (bit_magic::l1BP(m_k-1)+1) > 32 ? 8 : 4;
+//                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+//                              max #of bits for a factor 
+			ofstream factor_stream(factor_file.c_str());
+			if ( factor_stream ){
+				size_type factors = 0;
+				size_type lb = 0, rb=m_n-1, d=0;
+				for (size_type i=0; i<text.size(); ++i) {
+					size_type lb1 = m_bl_rank(lb);
+					size_type rb1 = m_bl_rank(rb+1);
+					uint8_t c = text[i];
+					size_type lb2 = m_wt.rank(lb1, c);
+					size_type rb2 = m_wt.rank(rb1, c);
+					if (lb2 == rb2) {
+						throw std::logic_error("greedy_parse: parse not possible with block prefixes");
+					} else {
+						++d; // we have matched another character
+						lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
+						rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
+						if (rb-lb+1 <= m_b) { // reached 
+							size_type bwd_id = get_bwd_id(lb, d);
+							write_factor(bwd_id, factor_stream, num_bytes);
+							++factors;
+							if (util::verbose and factors<50) {
+								cout<<"i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"] bwd_id="<<bwd_id<<endl;
+								extract_factor(bwd_id);
+							}
+							lb = 0; rb=m_n-1; d=0;
+						}
+					}
+				}
+				factor_stream.close();
+				util::clear(text);
+				int_vector<> factorization;
+				util::load_vector_from_file(factorization, factor_file.c_str(), num_bytes);
+				std::remove(factor_file.c_str()); // remove temp file
+				util::bit_compress(factorization);
+            	util::store_to_file(factorization, util::cache_file_name(KEY_GREEDY_FACTOR, config).c_str());
+            	return factors;
+			}else{
+				throw std::logic_error(("Greedy parse: Could not open temporary file: "+factor_file).c_str());	
+				return 0;
+			}
         }
 
         struct item {
