@@ -82,8 +82,7 @@ template<class BitVector
 ,class LcpSerializeWrapper
 ,class LcpLoadWrapper
 >
-class rosa
-{
+class rosa {
     public:
         typedef int_vector<>::size_type 									size_type;
         typedef BitVector 													bit_vector_type;
@@ -100,6 +99,8 @@ class rosa
         size_type				m_n;  // original text length
         size_type 				m_b;  // block size
         size_type				m_k;  // number of external blocks
+		uint8_t					m_lz_width; // bit-width of LZ factors
+		size_type				m_lz_size;  // #of factors in the LZ factorization 
         bit_vector_type 		m_bl; // indicates the BWT entries which corresponds to a representative suffix
         bit_vector_type 		m_bf; // indicates the representative suffixes in SA
         rank_support_type 		m_bl_rank; // rank support for m_bl
@@ -122,8 +123,10 @@ class rosa
         string					m_output_dir; // output directory
 
         mutable ifstream		m_text;	      // stream to the text
+		mutable ifstream		m_glz_text;   // stream to the factored text 
         mutable ifstream		m_ext_idx;    // stream to the external memory part
         unsigned char*			m_buf;		  // buffer for the text read from disk to match against the pattern
+		uint64_t*      			m_buf_lz;
         const size_type  		m_buf_size;   // buffer
 
 #ifdef OUTPUT_STATS
@@ -141,8 +144,7 @@ class rosa
          *          and use delta_x=delta_d=0 if we don't find its backward id
          *        * subtract and add d from the lcp values
          */
-        class disk_block
-        {
+        class disk_block {
                 int_vector<> m_header;	// Each entry contains an encoded header triple.
                 uint8_t m_width_bwd_id;	// Bit width of the maximal value of a backward id in the header.
                 uint8_t m_width_delta_x;// Bit width of the maximal delta x in the header.
@@ -229,6 +231,15 @@ class rosa
                     }
 */					
                 }
+
+				template<class tRank>
+				void replace_pointers(const tRank& factor_borders_rank){
+					for (size_type i=0; i<m_sa.size(); ++i){
+						m_sa[i] = factor_borders_rank(m_sa[i]);
+					}
+					// TODO: use bit_compress and adjust pointers of in-memory structure
+					// util::bit_compress(m_sa);
+				}
 
                 template<class rac>
                 void calculate_bp(bit_vector& bp_ct, const rac& lcp) {
@@ -353,21 +364,28 @@ class rosa
          *  before we open the new files.
          */
         void open_streams() {
-            close_stream_if_open(m_text);
-            m_text.open(m_file_name.c_str());
-            if (!m_text) {
-                std::cerr << "Error: Could not open file: " << m_file_name << std::endl;
-            } else {
-                if (util::verbose) std::cerr << "Opened file " << m_file_name << "\n";
-            }
-            close_stream_if_open(m_ext_idx);
-            m_ext_idx.open(get_ext_idx_filename().c_str());
-            if (!m_ext_idx) {
-                std::cerr << "Error: Could not open file: " << get_ext_idx_filename() << std::endl;
-            } else {
-                if (util::verbose) std::cerr << "Opened file "<< get_ext_idx_filename() << "\n";
-            }
+			open_stream(m_text, m_file_name.c_str());
+			open_stream(m_glz_text, get_factorization_filename().c_str());
+			{
+				int_vector_file_buffer<> glz_buffer(get_factorization_filename().c_str());
+				m_lz_width = glz_buffer.int_width;
+				m_lz_size  = glz_buffer.int_vector_size;
+				if (util::verbose){
+					cout<<"m_lz_width = "<<(int)m_lz_width<<" m_lz_size = "<<m_lz_size<<endl;
+				}
+			}
+			open_stream(m_ext_idx, get_ext_idx_filename().c_str());
         }
+
+		void open_stream(ifstream &stream, const char* file_name){
+	        close_stream_if_open(stream);
+            stream.open(file_name);
+            if (!stream) {
+                std::cerr << "Error: Could not open file: " << file_name << std::endl;
+            } else {
+                if (util::verbose) std::cerr << "Opened file " << file_name << "\n";
+            }	
+		}
 
         //! Wrapper for the seekg method of ifstream that increases the disk access counter
         void seekg(ifstream& in, size_type block_addr, bool count=true)const {
@@ -395,7 +413,8 @@ class rosa
         const int_vector<>& pointer;			//!< Array of pointers into the external structures (blocks or suffix array).
         const string& file_name;				//!< File name of the original text string.
         const string& output_dir;				//!< Directory where the output is stored.
-		const size_type& k;
+		const size_type& k;						//!< Number of block prefixes.
+		const uint8_t& lz_width;				//!< Bit-width of the LZ factors
 #ifdef OUTPUT_STATS
         const size_type& count_disk_access; 	//!< Counter for potential disk accesses.
         const size_type& count_gap_disk_access; //!< Counter for potential disk accesses caused by gaps in the fringe.
@@ -407,8 +426,10 @@ class rosa
 
         ~rosa() {
             m_text.close();    // close stream to the text
+			m_glz_text.close(); // close stream to the factorization
             m_ext_idx.close(); // close stream to the external part
-            delete [] m_buf;
+            if ( NULL != m_buf ) delete [] m_buf;
+			if ( NULL != m_buf_lz) delete [] m_buf_lz;
         }
 
         //! Get the name of the file where the external part of the index is stored.
@@ -420,6 +441,18 @@ class rosa
         //! Get the name of the file where the external part of the index is stored.
         string get_ext_idx_filename() {
             return get_ext_idx_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
+        }
+
+        //! Get the name of the file where the external part of the index is stored.
+        string get_tmp_ext_idx_filename() {
+            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_output_dir.c_str())+".tmp";
+		}
+        
+
+        //! Get the name of the file where the external part of the index is stored.
+        string get_factorization_filename() {
+			return get_output_dir(m_file_name.c_str(), m_output_dir.c_str()) + "/" + util::basename(m_file_name.c_str())
+			       +"."+ util::to_string(m_b)	+ ".2.glz";
         }
 
 
@@ -602,7 +635,9 @@ class rosa
         void calculate_bwd_id_and_fill_singleton_pointers(const tCst::csa_type csa,
                 const vector<block_info>& map_info,
                 const bit_vector& fwd_bf,
-                vector<block_node>& v_block) {
+                vector<block_node>& v_block,
+				bit_vector& is_singleton
+				) {
             rank_support_v5<> fwd_bf_rank(&fwd_bf);
             for (size_t bwd_id=0; bwd_id <map_info.size(); ++bwd_id) {
                 size_type fwd_lb = map_info[bwd_id].fwd_lb;
@@ -610,9 +645,11 @@ class rosa
                 v_block[fwd_id].bwd_id = bwd_id;
                 if (map_info[bwd_id].size == 1) {
                     m_pointer[bwd_id] =  csa[fwd_lb]; // insert SA value for singleton blocks
+					is_singleton[bwd_id] = 1;
                 }
             }
             if (util::verbose) cout << "SA pointer for singleton block were inserted.\n";
+            if (util::verbose) cout << "singleton block were marked in bit_vector is_singleton.\n";
             if (util::verbose) cout << "fwd_id <-> bwd_id mapping was calculated.\n";
         }
 
@@ -637,14 +674,9 @@ class rosa
                                                 vector<vector<header_item> >& header_of_external_block) {
             size_type total_header_in_bytes = 0;
             size_type ext_idx_size_in_bytes = 0;
-            std::ofstream ext_idx_out(get_ext_idx_filename().c_str(), std::ios_base::trunc);
+            std::ofstream ext_idx_out(get_tmp_ext_idx_filename().c_str(), std::ios_base::trunc);
             if (ext_idx_out) {
 //TODO: test if the size of the output buffer chances the performance
-#ifdef USE_CUSTOM_BUFFER
-                const size_type output_buf_size = 20 * (1ULL<<20);
-                char* output_buf = new char[output_buf_size];
-                ext_idx_out.rdbuf()->pubsetbuf(output_buf, output_buf_size);
-#endif
                 select_support_mcl<> fwd_bf_select(&fwd_bf);
                 vector<size_type> block_addr(m_k+1, 0);
                 char* text = NULL;
@@ -671,11 +703,8 @@ class rosa
                         m_pointer[ v_block[fwd_idx].bwd_id ] = addr;
                     }
                 }
-#ifdef USE_CUSTOM_BUFFER
-                delete [] output_buf;
-#endif
             } else {
-                std::cerr << "ERROR: Could not open file " << get_ext_idx_filename() << endl;
+                std::cerr << "ERROR: Could not open file " << get_tmp_ext_idx_filename() << endl;
             }
         }
 
@@ -718,7 +747,7 @@ class rosa
          *		\f$ \Order{n \log\sigma} \f$, where n is the length of the text.
          */
         rosa(const char* file_name=NULL, size_type b=4096, bool output_tikz=false, bool delete_tmp=false,
-             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_size(1024)
+             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_lz(NULL), m_buf_size(1024)
             ,bl(m_bl), bf(m_bf), wt(m_wt)
             ,bl_rank(m_bl_rank), bf_rank(m_bf_rank)
             ,bf_select(m_bf_select)
@@ -731,6 +760,7 @@ class rosa
             ,file_name(m_file_name)
             ,output_dir(m_output_dir)
 			,k(m_k)						 
+			,lz_width(m_lz_width)
 #ifdef OUTPUT_STATS
             ,count_disk_access(m_count_disk_access)
             ,count_gap_disk_access(m_count_gap_disk_access)
@@ -741,6 +771,7 @@ class rosa
 #endif
         {
             m_buf = new unsigned char[m_buf_size]; // initialise buffer for pattern
+            m_buf_lz = new uint64_t[m_buf_size]; // initialise buffer for pattern
             if (NULL == file_name) {
                 return; // if no file_name is specified do not construct the index
             }
@@ -803,7 +834,8 @@ class rosa
 //          (7)
             util::assign(m_pointer, int_vector<>(m_k, 0, 64));
             write_R_output("bwd_id and singleton pointers","construct","begin");
-            calculate_bwd_id_and_fill_singleton_pointers(fwd_cst.csa, map_info, fwd_bf, v_block);
+			bit_vector is_singleton(m_k, 0);
+            calculate_bwd_id_and_fill_singleton_pointers(fwd_cst.csa, map_info, fwd_bf, v_block, is_singleton);
             write_R_output("bwd_id and singleton pointers","construct","end");
 //          (8) Calculate the headers of the external blocks
             vector<vector<header_item> > header_of_external_block(m_k);
@@ -828,10 +860,44 @@ class rosa
             write_R_output("cBWT","construct","end");
             util::clear(bwd_csa);
 //			(13) greedy parse the text
-			greedy_parse(tmp_dir);
-//          (13) Open stream to text and external index for the matching
+			bit_vector factor_borders;
+			greedy_parse(tmp_dir, factor_borders);
+//			(14) Replace SA text pointers by SA LZ-text pointers
+			replace_pointers(factor_borders, is_singleton);
+			util::clear(factor_borders);
+			util::clear(is_singleton);
+//          (15) Open stream to text and external index for the matching
             open_streams();
         }
+
+		/*!  
+		 *  Adjust SA pointers in disk blocks to factorization
+		 *  Adjust SA singleton pointers in condensed BWT
+		 */
+		void replace_pointers(const bit_vector& factor_borders, const bit_vector& is_singleton){
+			rank_support_v<> factor_borders_rank(&factor_borders);
+			ifstream tmp_ext_idx;
+			open_stream(tmp_ext_idx, get_tmp_ext_idx_filename().c_str());
+	        tmp_ext_idx.seekg(0, std::ios::end);
+            std::streampos end = tmp_ext_idx.tellg(); // get the end position
+            seekg(tmp_ext_idx, 0, false); // load the first block
+			ofstream ext_idx(get_ext_idx_filename().c_str());
+            // iterate through all blocks
+            while (tmp_ext_idx.tellg() < end) {
+                disk_block db;
+                db.load(tmp_ext_idx); // load block
+				db.replace_pointers(factor_borders_rank);
+				db.serialize(ext_idx);
+			}
+			ext_idx.close();
+			std::remove(get_tmp_ext_idx_filename().c_str());
+
+			for (size_type i=0; i<m_k; ++i){
+				if ( is_singleton[i] ) {
+					m_pointer[i] = factor_borders_rank(m_pointer[i]);
+				}
+			}
+		}
 
         //! Calculate the id of a block in the backward index using its left bound and depth.
         /*!
@@ -883,7 +949,7 @@ class rosa
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (match_pattern(pattern+d, m-d, sa+d)) {
+                        if (match_pattern_lz(pattern, m, sa)) {
                             res.push_back(sa);
                             return 1;
                         }
@@ -942,7 +1008,7 @@ class rosa
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (0 == match_pattern(pattern+d, m-d, sa+d))
+                        if (match_pattern_lz(pattern, m, sa))
                             return 1;
                     } else {
                         size_type block_addr = m_pointer[bwd_id];
@@ -996,7 +1062,7 @@ class rosa
             return true;
         }
 
-        void extract_factor(size_type bwd_id)const {
+        void extract_factor(size_type bwd_id, string &factor_string)const {
             size_type zero_pos	= m_bm_0_select(bwd_id+1);
             size_type ones 		= zero_pos - bwd_id; // ones in bm[0..zero_pos)
             size_type depth_idx = m_bm_10_rank(zero_pos+1);
@@ -1008,15 +1074,17 @@ class rosa
             }
             size_type lb		= m_bf_select(ones + 1);
             unsigned char c = '\0';
-            stack<unsigned char> factor;
+//            stack<unsigned char> factor;
+			factor_string.resize(depth);
             for (size_type i=0, _lb = lb; i < depth; ++i) {
                 c = first_row_character(_lb);
-                factor.push(c);
+				factor_string[depth-i-1] = c;
+//                factor.push(c);
                 size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
                 size_type cpos   = m_wt.select(c_rank, c);
                 _lb = m_bl_select(cpos+1);
             }
-
+/*
             size_type rb = m_n-1;
             while (!factor.empty()) {
                 size_type rb1 = m_bl_rank(rb+1);
@@ -1027,6 +1095,7 @@ class rosa
             }
 			cout<<endl;
             cout<<"extract_factor("<<bwd_id<<")="<<depth<<"-["<<lb<<","<<rb<<"]"<<endl;
+*/			
         }
 
         unsigned char first_row_character(size_type i)const {
@@ -1069,7 +1138,7 @@ class rosa
 		 * Parse the text greedily into factors. Each factor (except the last one) corresponds to
 		 * a block prefix of an external block. 
 		 */
-        size_type greedy_parse(string tmp_dir) {
+        size_type greedy_parse(string tmp_dir, bit_vector &factor_borders) {
             if (m_b >= m_n) {
                 throw std::logic_error("greedy_parse: m_b="+util::to_string(m_b)+" >= "+util::to_string(m_b)+"=m_n");
             }
@@ -1087,6 +1156,7 @@ class rosa
 //                              max #of bits for a factor 
 			ofstream factor_stream(factor_file.c_str());
 			if ( factor_stream ){
+				util::assign(factor_borders, bit_vector(text.size(),0));
 				size_type factors = 0;
 				size_type lb = 0, rb=m_n-1, d=0;
 				for (size_type i=0; i<text.size(); ++i) {
@@ -1102,12 +1172,15 @@ class rosa
 						lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
 						rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
 						if (rb-lb+1 <= m_b) { // reached 
+							factor_borders[i] = 1;
 							size_type bwd_id = get_bwd_id(lb, d);
 							write_factor(bwd_id, factor_stream, num_bytes);
 							++factors;
 							if (util::verbose and factors<50) {
 								cout<<"i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"] bwd_id="<<bwd_id<<endl;
-								extract_factor(bwd_id);
+								string factor;
+								extract_factor(bwd_id, factor);
+								cout<<"factor="<<factor<<endl;
 							}
 							lb = 0; rb=m_n-1; d=0;
 						}
@@ -1119,7 +1192,8 @@ class rosa
 				util::load_vector_from_file(factorization, factor_file.c_str(), num_bytes);
 				std::remove(factor_file.c_str()); // remove temp file
 				util::bit_compress(factorization);
-            	util::store_to_file(factorization, util::cache_file_name(KEY_GREEDY_FACTOR, config).c_str());
+				m_lz_width = factorization.get_int_width();
+            	util::store_to_file(factorization, get_factorization_filename().c_str());
             	return factors;
 			}else{
 				throw std::logic_error(("Greedy parse: Could not open temporary file: "+factor_file).c_str());	
@@ -1226,8 +1300,7 @@ class rosa
          *  time. After that the get_interval operation efficiently determines
          *  if and how often a pattern can possible occur in the disk block.
          */
-        class block_tree
-        {
+        class block_tree {
             public:
                 typedef bit_vector::size_type  size_type;
                 typedef bp_interval<size_type> node_type;
@@ -1444,7 +1517,7 @@ class rosa
 #if defined BENCHMARK_LOAD_ONLY || defined BENCHMARK_CREATE_ONLY || defined BENCHMARK_SEARCH_BLOCK_ONLY
             return size;
 #endif
-            if (size > 0 and match_pattern(pattern, m, db.sa[lb] + depth + delta_d)) {
+            if (size > 0 and match_pattern_lz(pattern-depth, m+depth, db.sa[lb])) {
                 if (NULL != loc) {
                     for (size_type i=lb; i<=rb; ++i) {
                         loc->push_back(db.sa[i]);
@@ -1469,10 +1542,8 @@ class rosa
             if (0==m or text_offset >= m_n-1) {  // avoid disk access if m==0
                 return false;
             }
-            bool truncated = false;
             // should be: text_offset+m <= m_n-1
             if (text_offset + m > m_n-1) {   // m_n-1 text size without the sentinel character
-                m = (m_n-1) - text_offset;
 				return false;
             }
             seekg(m_text, text_offset);
@@ -1488,6 +1559,67 @@ class rosa
             }
             return true;
         }
+		
+		 void calculate_kmp_table(const unsigned char* pattern, size_type m, int_vector<> &kmp_table)const {
+		 	for(size_type i=1,j=0; i<m; ++i){
+				while ( j > 0 and pattern[i] != pattern[j] ){
+					j = kmp_table[j];
+				}
+				kmp_table[i] = j + (pattern[i]==pattern[j]);
+			}
+		 } 
+
+		//! Check if pattern is a prefix of a suffix starting in the factor lz_offset
+		/* \param pattern		A pointer to the start of the pattern.
+		 * \param m				Length of the pattern.
+		 * \param lz_offset		Index to the factor 
+		 */
+		bool match_pattern_lz(const unsigned char* pattern, size_type m, size_type lz_offset)const{
+			if (  ) cout<<"match_pattern_lz("<<pattern<<","<<m<<","<<lz_offset<<")"<<endl;
+			if ( m == 0 or lz_offset >= m_lz_size-1 ){ // if lz_offset == m_lz_size-1 then it is the terminal character
+				return false;
+			}
+			size_type lz_bit_offset = m_lz_width*lz_offset;
+			cout<<"lz_offset = "<<lz_offset<<"  /  lz_size = "<<m_lz_size<<endl;
+			cout<<"lz_bit_offset = "<<lz_bit_offset<<endl;
+			
+			seekg(m_glz_text, 9+((lz_bit_offset)/64)*8);
+			
+			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
+			calculate_kmp_table(pattern, m, kmp_table);
+				
+			size_type len = ((m_lz_width*(lz_offset+m)-1)/64)-((m_lz_width*lz_offset)/64)+1; // len in 64 bit words
+			len = std::min(len, m_buf_size);
+			cout<<"len="<<len<<endl;
+			size_type matched = 0;
+
+			m_glz_text.read((char*)m_buf_lz, 8*len);
+				
+			uint8_t bit_offset = lz_bit_offset&0x3F;
+			cout<<"bit_offset="<<(int)bit_offset<<endl;
+			const uint64_t *word = m_buf_lz;
+			while ( word < m_buf_lz+len ){
+				uint64_t factor_id = bit_magic::read_int_and_move(word, bit_offset, m_lz_width);
+				cout << "factor id=" << factor_id << endl;
+				string factor_string;
+				extract_factor(factor_id, factor_string); 
+				cout << "factor string=" << factor_string << endl;
+				for(size_type i=0; i<factor_string.size(); ++i){
+					while( matched > 0 and factor_string[i] != pattern[matched] ){
+						matched = kmp_table[matched];
+					}
+					if ( factor_string[i] == pattern[matched] ){
+						++matched;
+						if ( m == matched )
+							return true;
+					}
+				}
+				if (factor_id==0)
+					break;
+			}
+
+			return false;
+		}
 
 		
 

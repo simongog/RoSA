@@ -456,12 +456,14 @@ int main(int argc, char* argv[])
             } else if (output_trie_nodes) {
                 index.trie_nodes();
             } else if (greedy) {
-                size_type factors = index.greedy_parse(tmp_file_dir);
+				bit_vector factor_borders;
+                size_type factors = index.greedy_parse(tmp_file_dir, factor_borders);
                 std::cout << "factors = "<<factors << std::endl;
                 std::cout << "avg factor length = "<<((double)index.size())/factors<< std::endl;
 				std::cout << "k="<< index.k-1 << std::endl;
                 int bpf = bit_magic::l1BP(index.k-1)+1;
                 std::cout << "bit_magic::l1BP(index.k-1)+1="<< bpf << std::endl;
+				std::cout << "lz_width="<<(int)index.lz_width<<std::endl;
                 std::cout << "factorization size in MB:"<< ((double)factors*bpf)/(8*(1<<20)) << std::endl;
             }
         } else {
