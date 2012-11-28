@@ -1575,35 +1575,36 @@ class rosa {
 		 * \param lz_offset		Index to the factor 
 		 */
 		bool match_pattern_lz(const unsigned char* pattern, size_type m, size_type lz_offset)const{
-			if (  ) cout<<"match_pattern_lz("<<pattern<<","<<m<<","<<lz_offset<<")"<<endl;
+			if ( util::verbose ) cout<<"match_pattern_lz("<<pattern<<","<<m<<","<<lz_offset<<")"<<endl;
 			if ( m == 0 or lz_offset >= m_lz_size-1 ){ // if lz_offset == m_lz_size-1 then it is the terminal character
 				return false;
 			}
 			size_type lz_bit_offset = m_lz_width*lz_offset;
-			cout<<"lz_offset = "<<lz_offset<<"  /  lz_size = "<<m_lz_size<<endl;
-			cout<<"lz_bit_offset = "<<lz_bit_offset<<endl;
+			if ( util::verbose ) cout<<"lz_offset = "<<lz_offset<<"  /  lz_size = "<<m_lz_size<<endl;
+			if ( util::verbose ) cout<<"lz_bit_offset = "<<lz_bit_offset<<endl;
 			
 			seekg(m_glz_text, 9+((lz_bit_offset)/64)*8);
 			
 			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
 			calculate_kmp_table(pattern, m, kmp_table);
-				
+//TODO: handle the case where we load multiple blocks form disk				
 			size_type len = ((m_lz_width*(lz_offset+m)-1)/64)-((m_lz_width*lz_offset)/64)+1; // len in 64 bit words
 			len = std::min(len, m_buf_size);
-			cout<<"len="<<len<<endl;
+			if ( util::verbose ) cout<<"len="<<len<<endl;
 			size_type matched = 0;
 
 			m_glz_text.read((char*)m_buf_lz, 8*len);
 				
 			uint8_t bit_offset = lz_bit_offset&0x3F;
-			cout<<"bit_offset="<<(int)bit_offset<<endl;
+			if ( util::verbose ) cout<<"bit_offset="<<(int)bit_offset<<endl;
 			const uint64_t *word = m_buf_lz;
 			while ( word < m_buf_lz+len ){
 				uint64_t factor_id = bit_magic::read_int_and_move(word, bit_offset, m_lz_width);
-				cout << "factor id=" << factor_id << endl;
+				++lz_offset;
+				if ( util::verbose ) cout << "factor id=" << factor_id << endl;
 				string factor_string;
 				extract_factor(factor_id, factor_string); 
-				cout << "factor string=" << factor_string << endl;
+				if ( util::verbose ) cout << "factor string=" << factor_string << endl;
 				for(size_type i=0; i<factor_string.size(); ++i){
 					while( matched > 0 and factor_string[i] != pattern[matched] ){
 						matched = kmp_table[matched];
