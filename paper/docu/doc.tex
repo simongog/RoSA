@@ -1,0 +1,42 @@
+\documentclass{article}
+
+\begin{document}
+
+\section{Greedy parse}
+
+\begin{itemize}
+	\item Text is processed from left to right. The
+	      text is matched backward against the condensed BWT
+		  of the reversed text until a leaf of the
+		  condensed BWT is reached, i.e. the factor corresponds 
+		  to a block prefix of an external block. Remember that $k$ is the
+		  number of external blocks and we can identify
+		  each factor by an integer in $[0..k-1]$. 
+	\item Note that the last factor is guaranteed to be block
+	      prefix, since we have appended the unique sentinel character
+		  to the text.	
+\end{itemize}
+
+\section{Decoding factors}
+A factor is represented as a number of fixed width in the range
+$[0..k-1]$. This number corresponds to the backward id. We can
+reconstruct the depth $d$ and the left bound $lb$ of the interval
+which corresponds to the block prefix of the factor in constant time
+by using $bm$ and $min\_depth$ and rank and select data structures.
+
+\section{Changes}
+
+\begin{itemize}
+	\item Suffix array pointers in disk blocks were adjusted to
+	      factorization. 
+	\item Suffix array values of singleton pointers were adjusted to
+		  factorization.
+	\item After the matching in the condensed BWT we need the current
+	      depth and $\Delta_d$ to determine the right lexicographical
+		  range. However, we can not use depth and $\Delta_d$ to get
+		  the exact position in the factorization where we have to
+		  start matching the pattern.
+	\item We have to start matching the pattern from its first position.	
+\end{itemize}
+
+\end{document}
