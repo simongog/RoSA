@@ -197,22 +197,21 @@ class rosa {
                  *
                  * \pre rb>lb
                  */
-                template<class tCst>
-                void set_content(const tCst& cst, const unsigned char* text, size_type lb, size_type rb) {
+                inline void set_content(const int_vector<64> &sa_buf, const int_vector<64> &lcp_buf, const unsigned char* text, size_type block_len) {
                     size_type max_sa = 0;
                     size_type max_lcp = 0;
-                    m_lcp 	= int_vector<>(rb-lb+1);
-                    m_sa  	= int_vector<>(rb-lb+1);
-                    for (size_type i=lb; i <= rb ; ++i) { // copy SA and LCP values of the block
-                        m_sa[i-lb] = cst.csa[i];
-                        m_lcp[i-lb] = cst.lcp[i];
+                    m_lcp 	= int_vector<>(block_len);
+                    m_sa  	= int_vector<>(block_len);
+                    for (size_type i=1; i <= block_len; ++i) { // copy SA and LCP values of the block
+                        m_sa[i-1] = sa_buf[i];
                     }
-                    calculate_bit_lcp(m_lcp, m_sa, text, cst, lb);
+//					cout<<"entered sa values"<<endl;
+                    calculate_bit_lcp(m_lcp, sa_buf, lcp_buf, text);
 /*					
                     if (util::verbose) {
-                        std::cout << "[" << lb << "," << rb << "]" << std::endl;
+						std::cout<<"block_len="<<block_len<<std::endl;
                         std::cout << "LCP ="; for (size_type i=0; i<m_lcp.size(); ++i) {
-                            std::cout << " " << m_lcp[i];
+                            std::cout << " " << m_lcp[i] << "("<< lcp_buf[i+1] <<") ";
                         }; std::cout << std::endl;
                     }
 */					
@@ -258,19 +257,12 @@ class rosa {
                     }
                 }
 
-                template<class rac, class tCst>
-                void calculate_bit_lcp(rac& lcp, const rac& sa, const unsigned char* text, const tCst& cst, size_type lb) {
-                    if (lb == 0) {  // if we are in the first interval; should be the 0-interval
-                        lcp[0] = 0;
-                    } else {
-                        unsigned char c1 = text[cst.csa[lb-1] + lcp[0]];
-                        unsigned char c2 = text[sa[0] + lcp[0]];
-                        lcp[0] = lcp[0]*8 + 7-bit_magic::l1BP(c1^c2);
-                    }
-                    for (size_type i=1; i < lcp.size(); ++i) {
-                        unsigned char c1 = text[sa[i-1] + lcp[i]];
-                        unsigned char c2 = text[sa[i] + lcp[i]];
-                        lcp[i] = lcp[i]*8 + 7-bit_magic::l1BP(c1^c2);
+                template<class rac>
+                void calculate_bit_lcp(rac& lcp, const int_vector<64>& sa_buf, const int_vector<64>& lcp_buf, const unsigned char* text) {
+                    for (size_type i=0; i < lcp.size(); ++i) {
+                        unsigned char c1 = text[sa_buf[i]   + lcp_buf[i+1]];
+                        unsigned char c2 = text[sa_buf[i+1] + lcp_buf[i+1]];
+                        lcp[i] = lcp_buf[i+1]*8 + 7-bit_magic::l1BP(c1^c2);
                         c1 = c2;
                     }
                 }
@@ -668,7 +660,27 @@ class rosa {
             if (util::verbose) cout << "Header for external block calculated.\n";
         }
 
-        void write_external_blocks_and_pointers(const tCst cst,
+		uint64_t get_next_int(ifstream &stream, uint8_t width, uint8_t& offset, uint64_t& cached_word){
+			uint64_t res = 0;
+			if ( offset == 0 ){
+				stream.read((char*)&cached_word, sizeof(uint64_t));
+				res = bit_magic::read_int(&cached_word, offset, width);
+				offset = (offset+width)&0x3F;
+			}else if ( offset + width <= 64 ){
+				res = bit_magic::read_int(&cached_word, offset, width);
+				offset = (offset+width)&0x3F;
+			}else{ // handle case where integers spans across borders
+				res = (cached_word)>>offset;
+				uint8_t  bit_of_old_word = 64-offset;
+				stream.read((char*)&cached_word, sizeof(uint64_t));
+				offset = (offset+width)&0x3F;
+				res |= (((cached_word)&bit_magic::Li1Mask[offset])<<bit_of_old_word);
+			}
+			return res;
+		}
+
+        void write_external_blocks_and_pointers(const char* sa_file,
+												const char* lcp_file,
                                                 const bit_vector& fwd_bf,
                                                 const vector<block_node>& v_block,
                                                 vector<vector<header_item> >& header_of_external_block) {
@@ -681,15 +693,50 @@ class rosa {
                 vector<size_type> block_addr(m_k+1, 0);
                 char* text = NULL;
                 file::read_text(m_file_name.c_str(), text);
+
+				ifstream sa_stream(sa_file);
+				ifstream lcp_stream(lcp_file);
+				uint64_t sa_size, lcp_size, sa_word=0, lcp_word=0, sa_idx=0, lcp_idx=0;
+				uint8_t sa_width, lcp_width, sa_off=0, lcp_off=0;
+				sa_stream.read((char*)&sa_size,sizeof(sa_size)); lcp_stream.read((char*)&lcp_size,sizeof(lcp_size));
+				sa_stream.read((char*)&sa_width,sizeof(sa_width)); lcp_stream.read((char*)&lcp_width,sizeof(lcp_width));
+				int_vector<64> sa_buf(m_b+1, 0);
+				int_vector<64> lcp_buf(m_b+1, 0);
+//				int_vector<> lcp;
+//				util::load_from_file(lcp, lcp_file);
+
                 for (size_t fwd_id=0; fwd_id < header_of_external_block.size(); ++fwd_id) {
                     if (header_of_external_block[fwd_id].size() > 0) { // if it is an irreducible block
                         sort(header_of_external_block[fwd_id].begin(), header_of_external_block[fwd_id].end());
                         disk_block db;
                         db.set_header(header_of_external_block[fwd_id]);
-                        db.set_content(cst, (const unsigned char*)text, fwd_bf_select(fwd_id+1), fwd_bf_select(fwd_id+2)-1);
+						size_type lb = fwd_bf_select(fwd_id+1), rb = fwd_bf_select(fwd_id+2)-1;
+						if ( lb==0 ){
+							throw std::logic_error("lb==0: No sentinel character appended?");
+						}
+						while ( sa_idx < lb-1 ){
+							get_next_int(sa_stream, sa_width, sa_off, sa_word);
+							get_next_int(lcp_stream, lcp_width, lcp_off, lcp_word);
+							++sa_idx; ++lcp_idx;
+						}
+						for (size_type i= (sa_idx==lb); sa_idx<=rb; ++i, ++sa_idx, ++lcp_idx){
+							sa_buf[i]	=	get_next_int(sa_stream, sa_width, sa_off, sa_word);
+							lcp_buf[i]	=	get_next_int(lcp_stream, lcp_width, lcp_off, lcp_word);
+//							if ( lcp_buf[i] != lcp[lcp_idx] ){
+//								cout<<"ERROR: i="<<i<<" lcp_idx="<<lcp_idx<<"   lcp_width="<<(int)lcp_width<<" lcp_off="<<(int)lcp_off<<endl;
+//								cout<<"lcp_buf[i]="<<lcp_buf[i]<<" lcp[lcp_idx]="<<lcp[lcp_idx]<<endl;
+//							}
+						}
+						size_type block_len = rb-lb+1;
+//						cout<<"["<<lb<<","<<rb<<"]"<<endl;
+						//             sa_buf and lcp_buf store block_len+1 integers 
+                        db.set_content(sa_buf, lcp_buf, (const unsigned char*)text, block_len);
                         block_addr[fwd_id] = ext_idx_size_in_bytes;
                         ext_idx_size_in_bytes += db.serialize(ext_idx_out);
                         total_header_in_bytes += db.header_size_in_bytes();
+
+						sa_buf[0] = sa_buf[block_len];
+						lcp_buf[0] = lcp_buf[block_len];
                     }
                 }
                 ext_idx_out.close();
@@ -836,6 +883,7 @@ class rosa {
             write_R_output("bwd_id and singleton pointers","construct","begin");
 			bit_vector is_singleton(m_k, 0);
             calculate_bwd_id_and_fill_singleton_pointers(fwd_cst.csa, map_info, fwd_bf, v_block, is_singleton);
+            util::clear(fwd_cst);   // cst not needed any more
             write_R_output("bwd_id and singleton pointers","construct","end");
 //          (8) Calculate the headers of the external blocks
             vector<vector<header_item> > header_of_external_block(m_k);
@@ -844,9 +892,13 @@ class rosa {
             write_R_output("block_header","construct","end");
 //          (9) Write the external blocks
             write_R_output("external blocks","write","begin");
-            write_external_blocks_and_pointers(fwd_cst, fwd_bf, v_block, header_of_external_block);
+            cache_config config(false, tmp_dir, util::basename(m_file_name));
+			string sa_file = util::cache_file_name(constants::KEY_SA, config);
+			string lcp_file = util::cache_file_name(constants::KEY_LCP, config);
+			cout<<"sa_file = "<<sa_file<<endl;
+			cout<<"lcp_file = "<<lcp_file<<endl;
+            write_external_blocks_and_pointers(sa_file.c_str(), lcp_file.c_str(), fwd_bf, v_block, header_of_external_block);
             write_R_output("external blocks","write","end");
-            util::clear(fwd_cst);   // cst not needed any more
 //          (10) bit compress pointers
             util::bit_compress(m_pointer);
 //			(11) init m_bl_rank_and_cC
@@ -861,9 +913,28 @@ class rosa {
             util::clear(bwd_csa);
 //			(13) greedy parse the text
 			bit_vector factor_borders;
+            write_R_output("parse","construct","begin");
 			greedy_parse(tmp_dir, factor_borders);
+            write_R_output("parse","construct","end");
+
+			ofstream text_out(("./"+util::basename(m_file_name)+".lz.txt").c_str());
+			int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
+            for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
+                for (; i < r+r_sum; ++i) {
+					string factor_string;
+                    extract_factor(glz_buf[i-r_sum],factor_string);
+					text_out.write(factor_string.c_str(), factor_string.size());
+//					text_out<<"("<<glz_buf[i-r_sum]<<")";
+//					text_out.write("|",1);
+                }
+                r_sum += r; r = glz_buf.load_next_block();
+            }
+			text_out.close();
+
 //			(14) Replace SA text pointers by SA LZ-text pointers
+            write_R_output("ext_idx","replace_pointers","begin");
 			replace_pointers(factor_borders, is_singleton);
+            write_R_output("ext_idx","replace_pointers","end");
 			util::clear(factor_borders);
 			util::clear(is_singleton);
 //          (15) Open stream to text and external index for the matching
@@ -1075,14 +1146,23 @@ class rosa {
             size_type lb		= m_bf_select(ones + 1);
             unsigned char c = '\0';
 //            stack<unsigned char> factor;
+if(bwd_id==5){
+	cout<<"! cC ="; for(size_t i=0; i<=m_wt.sigma; ++i)cout<<" "<<m_cC[i];cout<<endl;
+}			
 			factor_string.resize(depth);
             for (size_type i=0, _lb = lb; i < depth; ++i) {
                 c = first_row_character(_lb);
+if(bwd_id==5){cout<<"! _lb="<<_lb<<" c="<<(char)c<<endl;}				
 				factor_string[depth-i-1] = c;
 //                factor.push(c);
-                size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
+//                size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
+
+                size_type c_rank = m_bf_rank(_lb)-(m_bf[_lb]==0)+1-m_cC[m_char2comp[c]];
+if(bwd_id==5){cout<<"! c_rank="<<c_rank<<" _lb="<<lb<<" m_cC[m_char2comp[c]]="<<m_cC[m_char2comp[c]]<<endl;}				
                 size_type cpos   = m_wt.select(c_rank, c);
+if(bwd_id==5){cout<<"! cpos="<<cpos<<endl;}				
                 _lb = m_bl_select(cpos+1);
+if(bwd_id==5){cout<<"! _lb="<<_lb<<endl;}				
             }
 /*
             size_type rb = m_n-1;
@@ -1099,10 +1179,14 @@ class rosa {
         }
 
         unsigned char first_row_character(size_type i)const {
-            size_type ii = m_bf_rank(i);
+			// transform position in BWT into position in condensed BWT
+            size_type ii = m_bf_rank(i) - (m_bf[i]==0);
+			if(i==20) {
+				cout<<"i="<<i<<" ii="<<i<<endl;
+			}
             if (m_wt.sigma < 16) {
                 size_type res = 1;
-                while (res < m_wt.sigma and m_cC[res] <= ii) {
+                while (m_cC[res] <= ii) {
                     ++res;
                 }
                 return m_comp2char[res-1];
@@ -1561,12 +1645,23 @@ class rosa {
         }
 		
 		 void calculate_kmp_table(const unsigned char* pattern, size_type m, int_vector<> &kmp_table)const {
-		 	for(size_type i=1,j=0; i<m; ++i){
-				while ( j > 0 and pattern[i] != pattern[j] ){
-					j = kmp_table[j];
+			if(util::verbose) cout<<"KMP_TABLE="<<kmp_table[0];
+			size_type i=1, j=0; 
+			while ( i < m ){
+				if ( pattern[i] == pattern[j] ){
+					kmp_table[i++] = ++j;
+if(util::verbose) cout<<" "<<kmp_table[i-1];
+				}else{
+					if(j>0){
+						j = kmp_table[j-1];	
+					}else{
+						kmp_table[i] = 0;
+if(util::verbose) cout<<" "<<kmp_table[i];
+						++i;
+					}
 				}
-				kmp_table[i] = j + (pattern[i]==pattern[j]);
 			}
+			if(util::verbose)cout<<endl;
 		 } 
 
 		//! Check if pattern is a prefix of a suffix starting in the factor lz_offset
@@ -1598,21 +1693,26 @@ class rosa {
 			uint8_t bit_offset = lz_bit_offset&0x3F;
 			if ( util::verbose ) cout<<"bit_offset="<<(int)bit_offset<<endl;
 			const uint64_t *word = m_buf_lz;
-			while ( word < m_buf_lz+len ){
+			while ( word < m_buf_lz+len-1 or (word == m_buf_lz+len-1 and bit_offset+m_lz_width <= 64) ){
 				uint64_t factor_id = bit_magic::read_int_and_move(word, bit_offset, m_lz_width);
 				++lz_offset;
-				if ( util::verbose ) cout << "factor id=" << factor_id << endl;
+				if ( util::verbose ) cout << "factor id=" << factor_id << 
+					" word="<<word <<
+					" bit_offset="<<(int)bit_offset<< " m_lz_width="<<m_lz_width << endl;
 				string factor_string;
 				extract_factor(factor_id, factor_string); 
 				if ( util::verbose ) cout << "factor string=" << factor_string << endl;
-				for(size_type i=0; i<factor_string.size(); ++i){
-					while( matched > 0 and factor_string[i] != pattern[matched] ){
-						matched = kmp_table[matched];
-					}
+				for(size_type i=0; i<factor_string.size(); ){
 					if ( factor_string[i] == pattern[matched] ){
-						++matched;
-						if ( m == matched )
+						if (matched==m-1)
 							return true;
+						++i; ++matched;
+					}else{
+						if ( matched > 0 ){
+							matched = kmp_table[matched-1];
+						}else{
+							++i;
+						}
 					}
 				}
 				if (factor_id==0)
