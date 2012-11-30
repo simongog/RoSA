@@ -942,6 +942,9 @@ class rosa {
                 for (; i < r+r_sum; ++i) {
 					string factor_string;
                    	extract_factor(glz_buf[i-r_sum],factor_string);
+					if ( i+1 == glz_buf.int_vector_size ){
+						factor_string = factor_string.substr(0, factor_string.size()-1);
+					}
 					text_out.write(factor_string.c_str(), factor_string.size());
 					if ( delimiter.size() > 0 ){
 						text_out.write(delimiter.c_str(), delimiter.size());
