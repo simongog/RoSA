@@ -262,6 +262,7 @@ void display_usage(char* command)
     cout << " verbose          : activate verbose mode." << endl;
     cout << " interactive      : enter interactive mode after creating/loading the index." << endl;
     cout << " greedy           : do a greedy parse." << endl;
+	cout << " reconstruct_text : reconstruct text from factorization and condensed BWT." << endl;
     cout << endl;
     cout << "* if pattern_min_occ=pattern_max_occ=0 this restriction is not used in the " << endl;
     cout << "  pattern generation process." << endl;
@@ -297,6 +298,7 @@ int main(int argc, char* argv[])
     int verbose = false;
     int interactive = 0;
     int greedy = 0;
+	int reconstruct_text = 0;
 
     int c;
     while (1) {
@@ -327,6 +329,7 @@ int main(int argc, char* argv[])
             {"verbose", no_argument, &verbose, 1},
             {"interactive",no_argument, &interactive, 1},
             {"greedy",no_argument, &greedy, 1},
+			{"reconstruct_text", no_argument, &reconstruct_text, 1},
             {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -441,7 +444,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_mem_info or output_statistics or output_Hk or output_trie_nodes or greedy) {
+    if (output_mem_info or output_statistics or output_Hk or output_trie_nodes or greedy or reconstruct_text) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
@@ -465,7 +468,9 @@ int main(int argc, char* argv[])
                 std::cout << "bit_magic::l1BP(index.k-1)+1="<< bpf << std::endl;
 				std::cout << "lz_width="<<(int)index.lz_width<<std::endl;
                 std::cout << "factorization size in MB:"<< ((double)factors*bpf)/(8*(1<<20)) << std::endl;
-            }
+            } else if(reconstruct_text){
+				index.reconstruct_text();
+			}
         } else {
             std::cerr << "ERROR: could not open file "<< int_idx_file_name << endl;
             return 1;

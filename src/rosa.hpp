@@ -835,6 +835,13 @@ class rosa {
             write_R_output("fwd_cst","construct","begin");
             construct_or_load_fwd_cst(fwd_cst, fwd_cst_file_name, tmp_dir, delete_tmp);
             write_R_output("fwd_cst","construct","end");
+/*
+			std::string check_text = algorithm::extract(fwd_cst.csa, 0, fwd_cst.csa.size()-1);
+			ofstream check_out((util::basename(file_name)+".check_text").c_str());
+			check_out.write(check_text.c_str(), check_text.size());
+			check_out.close();
+*/
+
 //          (2) Create the fwd_bf bit vector
             m_n = fwd_cst.size(); if (util::verbose) cout<<"m_n="<<m_n<<endl;
             bit_vector fwd_bf(m_n+1);
@@ -916,21 +923,6 @@ class rosa {
             write_R_output("parse","construct","begin");
 			greedy_parse(tmp_dir, factor_borders);
             write_R_output("parse","construct","end");
-
-			ofstream text_out(("./"+util::basename(m_file_name)+".lz.txt").c_str());
-			int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
-            for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
-                for (; i < r+r_sum; ++i) {
-					string factor_string;
-                    extract_factor(glz_buf[i-r_sum],factor_string);
-					text_out.write(factor_string.c_str(), factor_string.size());
-//					text_out<<"("<<glz_buf[i-r_sum]<<")";
-//					text_out.write("|",1);
-                }
-                r_sum += r; r = glz_buf.load_next_block();
-            }
-			text_out.close();
-
 //			(14) Replace SA text pointers by SA LZ-text pointers
             write_R_output("ext_idx","replace_pointers","begin");
 			replace_pointers(factor_borders, is_singleton);
@@ -940,6 +932,26 @@ class rosa {
 //          (15) Open stream to text and external index for the matching
             open_streams();
         }
+
+		//! Reconstruct text from the factorization and the condensed BWT
+		void reconstruct_text(const std::string delimiter=""){
+			string out_name = ("./"+util::basename(m_file_name)+".lz.txt");
+			ofstream text_out(out_name.c_str());
+			int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
+            for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
+                for (; i < r+r_sum; ++i) {
+					string factor_string;
+                   	extract_factor(glz_buf[i-r_sum],factor_string);
+					text_out.write(factor_string.c_str(), factor_string.size());
+					if ( delimiter.size() > 0 ){
+						text_out.write(delimiter.c_str(), delimiter.size());
+					}
+                }
+                r_sum += r; r = glz_buf.load_next_block();
+            }
+			text_out.close();	
+			cout<<"The reconstructed text is stored in "<<out_name<<endl;
+		}
 
 		/*!  
 		 *  Adjust SA pointers in disk blocks to factorization
@@ -1141,28 +1153,21 @@ class rosa {
             if (ones) {
                 depth += zero_pos - 1 - m_bm_1_select(ones);
             } else {
-                depth += zero_pos - 1;
+                depth += zero_pos;
             }
             size_type lb		= m_bf_select(ones + 1);
             unsigned char c = '\0';
 //            stack<unsigned char> factor;
-if(bwd_id==5){
-	cout<<"! cC ="; for(size_t i=0; i<=m_wt.sigma; ++i)cout<<" "<<m_cC[i];cout<<endl;
-}			
 			factor_string.resize(depth);
             for (size_type i=0, _lb = lb; i < depth; ++i) {
                 c = first_row_character(_lb);
-if(bwd_id==5){cout<<"! _lb="<<_lb<<" c="<<(char)c<<endl;}				
 				factor_string[depth-i-1] = c;
 //                factor.push(c);
 //                size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
 
                 size_type c_rank = m_bf_rank(_lb)-(m_bf[_lb]==0)+1-m_cC[m_char2comp[c]];
-if(bwd_id==5){cout<<"! c_rank="<<c_rank<<" _lb="<<lb<<" m_cC[m_char2comp[c]]="<<m_cC[m_char2comp[c]]<<endl;}				
                 size_type cpos   = m_wt.select(c_rank, c);
-if(bwd_id==5){cout<<"! cpos="<<cpos<<endl;}				
                 _lb = m_bl_select(cpos+1);
-if(bwd_id==5){cout<<"! _lb="<<_lb<<endl;}				
             }
 /*
             size_type rb = m_n-1;
@@ -1181,9 +1186,6 @@ if(bwd_id==5){cout<<"! _lb="<<_lb<<endl;}
         unsigned char first_row_character(size_type i)const {
 			// transform position in BWT into position in condensed BWT
             size_type ii = m_bf_rank(i) - (m_bf[i]==0);
-			if(i==20) {
-				cout<<"i="<<i<<" ii="<<i<<endl;
-			}
             if (m_wt.sigma < 16) {
                 size_type res = 1;
                 while (m_cC[res] <= ii) {
@@ -1260,12 +1262,6 @@ if(bwd_id==5){cout<<"! _lb="<<_lb<<endl;}
 							size_type bwd_id = get_bwd_id(lb, d);
 							write_factor(bwd_id, factor_stream, num_bytes);
 							++factors;
-							if (util::verbose and factors<50) {
-								cout<<"i="<<i<<" "<<d<<"-["<<lb<<","<<rb<<"] bwd_id="<<bwd_id<<endl;
-								string factor;
-								extract_factor(bwd_id, factor);
-								cout<<"factor="<<factor<<endl;
-							}
 							lb = 0; rb=m_n-1; d=0;
 						}
 					}
