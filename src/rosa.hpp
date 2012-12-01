@@ -956,6 +956,32 @@ class rosa {
 			cout<<"The reconstructed text is stored in "<<out_name<<endl;
 		}
 
+		void factor_frequency(){
+			string out_name = ("./"+util::basename(m_file_name)+".occ_freq");
+			ofstream res_out(out_name.c_str());
+			std::vector<size_type> freq(m_k, 0);
+			size_type max_freq = 0;
+			int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
+            for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
+                for (; i < r+r_sum; ++i) {
+                   	++freq[glz_buf[i-r_sum]];
+					if ( freq[glz_buf[i-r_sum]] > max_freq ){
+						max_freq = freq[glz_buf[i-r_sum]];
+					}
+                }
+                r_sum += r; r = glz_buf.load_next_block();
+            }
+			std::vector<size_type> occ_freq(max_freq+1, 0);
+		    for(size_type i=0; i<m_k; ++i){
+				++occ_freq[freq[i]];
+			}
+			res_out<<"frequency factor_nr"<<endl;
+			for(size_type i=0; i<occ_freq.size(); ++i){
+				res_out << i << " " << occ_freq[i] << std::endl;
+			}
+			res_out.close();
+		}
+
 		/*!  
 		 *  Adjust SA pointers in disk blocks to factorization
 		 *  Adjust SA singleton pointers in condensed BWT
