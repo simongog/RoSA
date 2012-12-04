@@ -698,6 +698,10 @@ class rosa {
 			return res;
 		}
 
+		/*!
+		 * \par Working set size
+		 *      text size + constant size buffers + O(m_b) words
+		 */
         void write_external_blocks_and_pointers(const char* sa_file,
 												const char* lcp_file,
                                                 const bit_vector& fwd_bf,
@@ -1274,14 +1278,16 @@ class rosa {
 		/*!
 		 * Parse the text greedily into factors. Each factor (except the last one) corresponds to
 		 * a block prefix of an external block. 
+		 *
+		 * \par Working set size
+		 *      Constant size buffer for the text + constant size buffer for the output + n bits for factor borders 
 		 */
         size_type greedy_parse(string tmp_dir, bit_vector &factor_borders) {
             if (m_b >= m_n) {
                 throw std::logic_error("greedy_parse: m_b="+util::to_string(m_b)+" >= "+util::to_string(m_b)+"=m_n");
             }
             cache_config config(false, tmp_dir, util::basename(m_file_name));
-            int_vector<8> text;
-            util::load_from_file(text, util::cache_file_name(constants::KEY_TEXT, config).c_str());
+            int_vector_file_buffer<8> text_buf(util::cache_file_name(constants::KEY_TEXT, config).c_str());
 			// file name for temporary 
 			string factor_file = tmp_dir+util::basename(m_file_name)+"_factors_"+util::to_string(util::get_pid())+"_"+util::to_string(util::get_id());
 			uint8_t num_bytes = (bit_magic::l1BP(m_k-1)+1) > 32 ? 8 : 4;
@@ -1289,32 +1295,35 @@ class rosa {
 //                              max #of bits for a factor 
 			ofstream factor_stream(factor_file.c_str());
 			if ( factor_stream ){
-				util::assign(factor_borders, bit_vector(text.size(),0));
+				util::assign(factor_borders, bit_vector(text_buf.int_vector_size,0));
 				size_type factors = 0;
 				size_type lb = 0, rb=m_n-1, d=0;
-				for (size_type i=0; i<text.size(); ++i) {
-					size_type lb1 = m_bl_rank(lb);
-					size_type rb1 = m_bl_rank(rb+1);
-					uint8_t c = text[i];
-					size_type lb2 = m_wt.rank(lb1, c);
-					size_type rb2 = m_wt.rank(rb1, c);
-					if (lb2 == rb2) {
-						throw std::logic_error("greedy_parse: parse not possible with block prefixes");
-					} else {
-						++d; // we have matched another character
-						lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
-						rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
-						if (rb-lb+1 <= m_b) { // reached 
-							factor_borders[i] = 1;
-							size_type bwd_id = get_bwd_id(lb, d);
-							write_factor(bwd_id, factor_stream, num_bytes);
-							++factors;
-							lb = 0; rb=m_n-1; d=0;
+
+				for (size_type i=0,r=0,r_sum=0; i < text_buf.int_vector_size;) { 
+					for (; i < r+r_sum; ++i) {
+						size_type lb1 = m_bl_rank(lb);
+						size_type rb1 = m_bl_rank(rb+1);
+						uint8_t c = text_buf[i-r_sum];
+						size_type lb2 = m_wt.rank(lb1, c);
+						size_type rb2 = m_wt.rank(rb1, c);
+						if (lb2 == rb2) {
+							throw std::logic_error("greedy_parse: parse not possible with block prefixes");
+						} else {
+							++d; // we have matched another character
+							lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
+							rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
+							if (rb-lb+1 <= m_b) { // reached 
+								factor_borders[i] = 1;
+								size_type bwd_id = get_bwd_id(lb, d);
+								write_factor(bwd_id, factor_stream, num_bytes);
+								++factors;
+								lb = 0; rb=m_n-1; d=0;
+							}
 						}
 					}
+					r_sum += r; r = text_buf.load_next_block();
 				}
 				factor_stream.close();
-				util::clear(text);
 				int_vector<> factorization;
 				util::load_vector_from_file(factorization, factor_file.c_str(), num_bytes);
 				std::remove(factor_file.c_str()); // remove temp file
