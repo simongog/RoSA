@@ -240,7 +240,6 @@ void display_usage(char* command)
     cout << " input_file       : file name of the input text" << endl;
     cout << " threshold        : block size threshold b; default=4096" << endl;
     cout << " generate_index   : generates the index" << endl;
-    cout << " generate_patterns: generate a pattern file; default=OFF" << endl;
     cout << " pattern_len      : length of each generated pattern; default=20" << endl;
     cout << " pattern_number   : number of generated patterns; default=100" << endl;
     cout << " pattern_swaps    : number of swaps applied to the patterns; default=0" << endl;
@@ -250,11 +249,9 @@ void display_usage(char* command)
     cout << " benchmark_int    : run benchmark for in-memory part only; default=0" << endl;
     cout << " benchmark_ext    : run benchmark for external memory part only; default=0" << endl;
     cout << " pattern_file     : the pattern file for the benchmark" << endl;
-    cout << " output_Hk        : output H_k for k=0..t of the text; default t=0" << endl;
     cout << " output_mem_info  : output information about the memory usage of the index" << endl;
     cout << " output_statistics: output statistics about the data structure" << endl;
     cout << " output_tikz      : output tikz code in the files: output_dir/basename(input_file).[f|b]wd_idx.tex" << endl;
-    cout << " output_trie_nodes: output the number of nodes of a LOF-SA trie" << endl;
     cout << " delete_tmp_file  : delete the temporary files after the construction; default=0" << endl;
     cout << " tmp_file_dir     : directory for the temporary files; default=./" << endl;
     cout << " output_dir       : directory for the constructed indexes; default=dirname(input_file)" << endl;
@@ -286,15 +283,12 @@ int main(int argc, char* argv[])
     int output_mem_info = 0;
     int output_tikz = 0;
     int output_statistics = 0;
-    int output_trie_nodes = 0;
     int run_benchmark = 0;
     int run_benchmark_int = 0;
     int run_benchmark_ext = 0;
-    int generate_patterns = 0;
     int do_generate_index = 0;
     int delete_tmp_file = 0;
     int delete_index_file = 0;
-    size_type output_Hk = 0;
     size_type max_k = 0;
     int verbose = false;
     int interactive = 0;
@@ -315,14 +309,11 @@ int main(int argc, char* argv[])
             {"pattern_swaps", required_argument, 0, 's'},
             {"pattern_min_occ", required_argument, 0, 'x'},
             {"pattern_max_occ", required_argument, 0, 'y'},
-            {"generate_patterns", no_argument, &generate_patterns, 1},
             {"generate_index", no_argument, &do_generate_index, 1},
             {"repeated_in_memory_search", no_argument, &repeated_in_memory_search, 1},
             {"output_mem_info", no_argument, &output_mem_info, 1},
             {"output_tikz", no_argument, &output_tikz, 1},
             {"output_statistics", no_argument, &output_statistics, 1},
-            {"output_trie_nodes", no_argument, &output_trie_nodes, 1},
-            {"output_Hk", required_argument, 0, 'h'},
             {"benchmark", no_argument, &run_benchmark, 1},
             {"benchmark_int", no_argument, &run_benchmark_int, 1},
             {"benchmark_ext", no_argument, &run_benchmark_ext, 1},
@@ -368,10 +359,6 @@ int main(int argc, char* argv[])
                 break;
             case 's':
                 swapno = atoll(optarg);
-                break;
-            case 'h':
-                output_Hk = 1;
-                max_k = atoll(optarg);
                 break;
             case 'x':
                 pmin_occ = atoll(optarg);
@@ -447,7 +434,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_mem_info or output_statistics or output_Hk or output_trie_nodes or greedy or reconstruct_text or factor_occ_freq) {
+    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
@@ -457,10 +444,6 @@ int main(int argc, char* argv[])
                 util::write_structure<JSON_FORMAT>(index, std::cout);
             } else if (output_statistics) {
                 index.statistics();
-            } else if (output_Hk) {
-                index.text_statistics(max_k);
-            } else if (output_trie_nodes) {
-                index.trie_nodes();
             } else if (greedy) {
 				bit_vector factor_borders;
                 size_type factors = index.greedy_parse(tmp_file_dir, factor_borders);
@@ -480,37 +463,6 @@ int main(int argc, char* argv[])
             std::cerr << "ERROR: could not open file "<< int_idx_file_name << endl;
             return 1;
         }
-        return 0;
-    }
-
-    if (generate_patterns) {
-        if (pattern_file_name == "") {
-            std::string path = get_output_dir(input_file_name.c_str(), output_dir.c_str());
-            pattern_file_name = path + "/" + util::basename(input_file_name) + "." + util::to_string(plen) +
-                                "." + util::to_string(pno) +
-                                "." + util::to_string(swapno) +
-                                "." + util::to_string(pmin_occ) +
-                                "." + util::to_string(pmax_occ) +
-                                ".pattern";
-        }
-        cout << "-- start pattern generation -- " << endl;
-        if (pmin_occ == pmax_occ and pmin_occ == 0) {  // if the occurrence restriction is not initialized
-            pattern_file pf(pattern_file_name.c_str());
-            pf.generate(input_file_name.c_str(), pno, plen, swapno);
-        } else {
-            std::string path = get_output_dir(input_file_name.c_str(), output_dir.c_str())+"/"+util::basename(input_file_name.c_str());
-            string tmp_fwd_cst_file_name = path + "." +TMP_CST_SUFFIX;
-            rosa<>::tCst cst;
-            if (!util::load_from_file(cst, tmp_fwd_cst_file_name.c_str())) {
-                std::cerr << "ERROR: could not open the compressed suffix tree file" << std::endl;
-            } else {
-                pattern_file pf(pattern_file_name.c_str());
-                pf.generate_restricted(cst, input_file_name.c_str(), pno, plen,
-                                       pmin_occ, pmax_occ);
-            }
-        }
-        cout << "-- finished pattern generation -- " << endl;
-        cout << "pattern stored in file: " <<pattern_file_name << endl;
         return 0;
     }
 

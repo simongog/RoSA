@@ -63,8 +63,9 @@ select_support_mcl<0> > // for pruned BWT
 >
 class rosa;
 
-#define TMP_CST_SUFFIX "tmp_fwd_cst8"
-#define TMP_CSA_SUFFIX "tmp_bwd_csa4"
+#define TMP_CST_SUFFIX "tmp_fwd_cstX"
+#define TMP_FWD_CSA_SUFFIX "tmp_fwd_csaX"
+#define TMP_BWD_CSA_SUFFIX "tmp_bwd_csaX"
 
 
 typedef bit_vector::size_type size_type;
@@ -89,9 +90,8 @@ class rosa {
         typedef RankSupport 												rank_support_type;
         typedef SelectSupport 												select_support_type;
         typedef WaveletTree 												wavelet_tree_type;
-        typedef csa_wt<wt_huff<>,64000, 64000> 								tCsa;
-        typedef cst_sada<csa_wt<wt_rlmn<>,8, 256>, lcp_support_tree2<8> > 	tCst;
-        typedef tCst::node_type 											node_type;
+        typedef csa_wt<wt_huff<rrr_vector<63> >,64000, 64000> 				tCsa;
+//        typedef cst_sada<csa_wt<wt_rlmn<>,8, 256>, lcp_support_tree2<8> > 	tCst;
         typedef select_support_mcl<>  										bm_select_1_type;
         typedef select_support_mcl<0> 										bm_select_0_type;
         typedef rank_support_v5<10,2> 										bm_rank10_type;
@@ -462,8 +462,8 @@ class rosa {
         //! Remove the temporary files which are created during the construction.
         static void remove_tmp_files(const char* file_name, const char* output_dir) {
             string path = get_output_dir(file_name, output_dir) + "/" + util::basename(file_name);
-            std::remove((path + "." + TMP_CST_SUFFIX).c_str());
-            std::remove((path + "." + TMP_CSA_SUFFIX).c_str());
+            std::remove((path + "." + TMP_FWD_CSA_SUFFIX).c_str());
+            std::remove((path + "." + TMP_BWD_CSA_SUFFIX).c_str());
         }
 
         /*!
@@ -472,23 +472,23 @@ class rosa {
          *	\param tmp_dir 		Location of the temporary directory for the construction.
          *  \param delete_tmp   Boolean flag, if the generated files uncompressed SA, LCP, and so on should be deleted.
          */
-        void construct_or_load_fwd_cst(tCst& cst, string file_name, string tmp_dir, bool delete_tmp) {
-            ifstream tmp_fwd_cst_stream(file_name.c_str());
-            if (!tmp_fwd_cst_stream) {
+        void construct_or_load_fwd_csa(tCsa& csa, string file_name, string tmp_dir, bool delete_tmp) {
+            ifstream tmp_fwd_csa_stream(file_name.c_str());
+            if (!tmp_fwd_csa_stream) {
                 if (util::verbose) {
                     cout<<"m_file_name="<<m_file_name<<endl;
                     cout<<"tmp_dir="<<tmp_dir<<endl;
                     cout<<"id="<<util::basename(m_file_name)<<endl;
                 }
                 cache_config config(delete_tmp, tmp_dir, util::basename(m_file_name));
-                construct(cst, m_file_name.c_str(), config, 1);
-                util::store_to_file(cst, file_name.c_str());
+                construct(csa, m_file_name.c_str(), config, 1);
+                util::store_to_file(csa, file_name.c_str());
             } else {
-                tmp_fwd_cst_stream.close();
+                tmp_fwd_csa_stream.close();
                 if (util::verbose) {
                     cout<< "load stored fwd_cst form file "<< file_name << endl;
                 }
-                util::load_from_file(cst, file_name.c_str());
+                util::load_from_file(csa, file_name.c_str());
             }
         }
 
@@ -624,19 +624,38 @@ class rosa {
             if (util::verbose) cout << "m_min_depth was calculated.\n";
         }
 
-        void calculate_bwd_id_and_fill_singleton_pointers(const tCst::csa_type csa,
+        void calculate_bwd_id_and_fill_singleton_pointers(const char* sa_file, const tCsa &csa,
                 const vector<block_info>& map_info,
                 const bit_vector& fwd_bf,
                 vector<block_node>& v_block,
 				bit_vector& is_singleton
 				) {
             rank_support_v5<> fwd_bf_rank(&fwd_bf);
-            for (size_t bwd_id=0; bwd_id <map_info.size(); ++bwd_id) {
+			int_vector<> block_sa(fwd_bf_rank(fwd_bf.size()), 0, bit_magic::l1BP(fwd_bf.size())+1);
+			int_vector_file_buffer<> sa_buf(sa_file);
+			for (size_type i=0,r=0,r_sum=0,idx=0; i < sa_buf.int_vector_size;) { 
+				for (; i < r+r_sum; ++i) {
+					if ( fwd_bf[i] ){
+						block_sa[idx++] = sa_buf[i-r_sum];
+					}
+				}
+				r_sum += r; r = sa_buf.load_next_block();
+			}
+
+            for (size_t bwd_id=0; bwd_id < map_info.size(); ++bwd_id) {
                 size_type fwd_lb = map_info[bwd_id].fwd_lb;
                 size_type fwd_id = fwd_bf_rank(fwd_lb+1)-1; // calculate corresponding forward id
                 v_block[fwd_id].bwd_id = bwd_id;
                 if (map_info[bwd_id].size == 1) {
+//					std::cout<<"bwd_id="<<bwd_id<<" fwd_lb="<<fwd_lb<<" map_info.size()="<<map_info.size()<<std::endl;
+					m_pointer[bwd_id] = block_sa[fwd_id];
+/*					
+					uint64_t x = block_sa[fwd_id];
                     m_pointer[bwd_id] =  csa[fwd_lb]; // insert SA value for singleton blocks
+					if ( x != m_pointer[bwd_id] ){
+						std::cout<<"x="<<x<<" m_pointer[bwd_id]="<<m_pointer[bwd_id]<<" fwd_lb="<<fwd_lb<<std::endl;
+					}
+*/					
 					is_singleton[bwd_id] = 1;
                 }
             }
@@ -826,15 +845,21 @@ class rosa {
             m_file_name = string(file_name);
             m_output_dir = get_output_dir(file_name, output_dir);
             string path = m_output_dir + "/" + util::basename(file_name);
-            string bwd_csa_file_name = path + "." + TMP_CSA_SUFFIX;
-            string fwd_cst_file_name = path + "." + TMP_CST_SUFFIX;
+            string bwd_csa_file_name = path + "." + TMP_BWD_CSA_SUFFIX;
+            string fwd_csa_file_name = path + "." + TMP_FWD_CSA_SUFFIX;
             string tmp_dir = (util::dirname(tmp_file_dir)+"/"+util::basename(tmp_file_dir)+"/");
 
+            cache_config config(false, tmp_dir, util::basename(m_file_name));
+			string lcp_file = util::cache_file_name(constants::KEY_LCP, config);
+			string sa_file = util::cache_file_name(constants::KEY_SA, config);
+			cout<<"sa_file = "<<sa_file<<endl;
+			cout<<"lcp_file = "<<lcp_file<<endl;
+
 //			(1) Load or construct the forward CST
-            tCst fwd_cst;
-            write_R_output("fwd_cst","construct","begin");
-            construct_or_load_fwd_cst(fwd_cst, fwd_cst_file_name, tmp_dir, delete_tmp);
-            write_R_output("fwd_cst","construct","end");
+            tCsa fwd_csa;
+            write_R_output("fwd_csa","construct","begin");
+            construct_or_load_fwd_csa(fwd_csa, fwd_csa_file_name, tmp_dir, delete_tmp);
+            write_R_output("fwd_csa","construct","end");
 /*
 			std::string check_text = algorithm::extract(fwd_cst.csa, 0, fwd_cst.csa.size()-1);
 			ofstream check_out((util::basename(file_name)+".check_text").c_str());
@@ -843,13 +868,15 @@ class rosa {
 */
 
 //          (2) Create the fwd_bf bit vector
-            m_n = fwd_cst.size(); if (util::verbose) cout<<"m_n="<<m_n<<endl;
+            m_n = fwd_csa.size(); if (util::verbose) cout<<"m_n="<<m_n<<endl;
             bit_vector fwd_bf(m_n+1);
             fwd_bf[m_n] = 1; // mark last bit
             write_R_output("fwd_bf","construct","begin");
-            mark_blocks(fwd_cst, fwd_bf, b, m_k);
+//            mark_blocks(fwd_cst, fwd_bf, b, m_k);
+
+			mark_blocks(lcp_file.c_str(), fwd_bf, b, m_k); 
             write_R_output("fwd_bf","construct","end");
-            util::clear(fwd_cst);  if (util::verbose) cout<<"cleared fwd_cst"<<endl;
+            util::clear(fwd_csa);  if (util::verbose) cout<<"cleared fwd_csa"<<endl;
 //          (3) Load or construct the backward CSA
             tCsa bwd_csa;
             write_R_output("bwd_csa","construct","begin");
@@ -871,17 +898,16 @@ class rosa {
             calculate_bm_and_min_depth(map_info,  m_k);
             write_R_output("bm and min_depth","construct","end");
 //          (6) Create the reducible graph
-            write_R_output("fwd_cst","load","begin");
-            construct_or_load_fwd_cst(fwd_cst, fwd_cst_file_name, tmp_dir, delete_tmp);
-            write_R_output("fwd_cst","load","end");
+            write_R_output("fwd_csa","load","begin");
+            construct_or_load_fwd_csa(fwd_csa, fwd_csa_file_name, tmp_dir, delete_tmp);
+            write_R_output("fwd_csa","load","end");
 
             vector<block_node> v_block;  // block_node contains (delta_x, delta_d, dest_block, bwd_id)
             size_type red_blocks=0;
             size_type singleton_blocks = 0;
             size_type elements_in_irred_blocks = 0;
             write_R_output("reducible graph","construct","begin");
-            calculate_reducible_graph(fwd_cst, fwd_bf, m_b, red_blocks, singleton_blocks,
-                                      elements_in_irred_blocks, v_block);
+            calculate_reducible_graph(fwd_csa, fwd_bf, m_b, red_blocks, singleton_blocks, elements_in_irred_blocks, v_block);
             write_R_output("reducible graph","construct","end");
             // now the entries delta_x, delta_d and dest_block are known for each block in forward order.
             // still missing bwd_id
@@ -889,8 +915,8 @@ class rosa {
             util::assign(m_pointer, int_vector<>(m_k, 0, 64));
             write_R_output("bwd_id and singleton pointers","construct","begin");
 			bit_vector is_singleton(m_k, 0);
-            calculate_bwd_id_and_fill_singleton_pointers(fwd_cst.csa, map_info, fwd_bf, v_block, is_singleton);
-            util::clear(fwd_cst);   // cst not needed any more
+            calculate_bwd_id_and_fill_singleton_pointers(sa_file.c_str(), fwd_csa, map_info, fwd_bf, v_block, is_singleton);
+            util::clear(fwd_csa);   // cst not needed any more
             write_R_output("bwd_id and singleton pointers","construct","end");
 //          (8) Calculate the headers of the external blocks
             vector<vector<header_item> > header_of_external_block(m_k);
@@ -899,11 +925,7 @@ class rosa {
             write_R_output("block_header","construct","end");
 //          (9) Write the external blocks
             write_R_output("external blocks","write","begin");
-            cache_config config(false, tmp_dir, util::basename(m_file_name));
-			string sa_file = util::cache_file_name(constants::KEY_SA, config);
-			string lcp_file = util::cache_file_name(constants::KEY_LCP, config);
-			cout<<"sa_file = "<<sa_file<<endl;
-			cout<<"lcp_file = "<<lcp_file<<endl;
+
             write_external_blocks_and_pointers(sa_file.c_str(), lcp_file.c_str(), fwd_bf, v_block, header_of_external_block);
             write_R_output("external blocks","write","end");
 //          (10) bit compress pointers
@@ -1260,10 +1282,6 @@ class rosa {
             cache_config config(false, tmp_dir, util::basename(m_file_name));
             int_vector<8> text;
             util::load_from_file(text, util::cache_file_name(constants::KEY_TEXT, config).c_str());
-            if (util::verbose) {
-                cout<<"greedy_parse: loaded text"<<endl;
-            }
-
 			// file name for temporary 
 			string factor_file = tmp_dir+util::basename(m_file_name)+"_factors_"+util::to_string(util::get_pid())+"_"+util::to_string(util::get_id());
 			uint8_t num_bytes = (bit_magic::l1BP(m_k-1)+1) > 32 ? 8 : 4;
@@ -1482,12 +1500,7 @@ class rosa {
                     }
                 }
 
-                //! Decide if a node is a leaf in the suffix tree.
-                /*!\param v A valid node of a cst_sct3.
-                 * \returns A boolean value indicating if v is a leaf.
-                 * \par Time complexity
-                 *      \f$ \Order{1} \f$
-                 */
+                //! Decide if a node is a leaf.
                 bool is_leaf(const node_type& v)const {
                     return v.i==v.j;
                 }
@@ -1905,35 +1918,6 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             std::cout << "# label_in_megabyte = " << 0 << std::endl;
         }
 
-        //! Print statistics about the input text.
-        void text_statistics(size_type max_k=0) {
-            string path = m_output_dir + "/" + util::basename(file_name) ;
-            string fwd_cst_file_name = path + "." + TMP_CST_SUFFIX;
-            tCst cst;
-            if (!util::load_from_file(cst, fwd_cst_file_name.c_str())) {
-                std::cerr << "ERROR: could not open the compressed suffix tree file" << std::endl;
-            } else {
-                std::cout << "k   H_k         contexts" << std::endl;
-                for (size_type k=0, contexts=0; k<=max_k; ++k) {
-                    double hk = Hk(cst, k, contexts);
-                    std::cout << std::setw(4) << k <<" "<< std::setw(10) << hk << " "<<contexts << std::endl;
-                }
-            }
-        }
-
-        //! Output the number of nodes in the in-memory trie of LOF-SA
-        void trie_nodes() const {
-            string path = m_output_dir + "/" + util::basename(file_name) ;
-            string fwd_cst_file_name = path + "." + TMP_CST_SUFFIX;
-            tCst cst;
-            if (!util::load_from_file(cst, fwd_cst_file_name.c_str())) {
-                std::cerr << "ERROR: could not open the compressed suffix tree file" << std::endl;
-            } else {
-                size_type trie_nodes, dummy_cnt;
-                get_trie_nodes_and_blocks(cst, m_b, trie_nodes, dummy_cnt);
-                std::cout << "# trie_nodes = " << trie_nodes << std::endl;
-            }
-        }
 };
 
 #endif // end of include guard
