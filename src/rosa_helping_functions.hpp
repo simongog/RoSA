@@ -2,6 +2,7 @@
 #define ROSA_HELPING_FUNCTIONS
 
 #include "rosa_helping_structures.hpp"
+#include "bu_interval.hpp"
 
 #include <sdsl/rank_support_v.hpp>
 #include <sdsl/select_support_mcl.hpp>
@@ -61,24 +62,6 @@ void mark_blocks(const tCst& cst, bit_vector& bf, size_type b, size_type& blocks
         }
     }
 }
-
-// bottom up interval
-struct bu_interval{
-	typedef int_vector<>::size_type size_type;
-	size_type lcp, lb, rb;
-	std::vector<bu_interval*> children;
-	bu_interval(size_type _lb, size_type _rb, size_type _lcp) : lb(_lb), rb(_rb), lcp(_lcp){};
-	~bu_interval(){ delete_children(); }
-	void delete_children(){
-		for (size_t i=0; i<children.size(); ++i){ //std::cout<<"delete "<<children[i]->lcp<<"-["<<children[i]->lb<<","<<children[i]->rb<<"]"<<std::endl;
-			delete children[i]; 
-		}
-		children.resize(0);
-	}
-	size_type size()const{
-		return rb-lb+1;
-	}
-};
 
 void mark_interval(bu_interval *v, bit_vector& bf, size_type b);
 void mark_blocks(const char* lcp_file, bit_vector& bf, size_type b, size_type& blocks);

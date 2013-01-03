@@ -38,158 +38,6 @@ std::string classify_block(const tCst &cst, typename tCst::node_type block){
 	}
 }
 
-//! Output the right-justified fringe for a block
-template<class tCst>
-void write_tikz_fringe_right(std::ostream &out, const tCst &cst, const bit_vector &bf, size_type b, size_type fringe_len){
-	typedef typename tCst::node_type node_type;
-	vector<size_type> index;
-	vector<size_type> fringe_depth;
-	for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it){
-		if ( it.visit() == 1 ){
-			node_type v = *it;
-			if ( cst.leaves_in_the_subtree(v) <= b ){
-				size_type lb = cst.lb(v), rb = cst.rb(v);
-				it.skip_subtree();
-				string block_type = classify_block(cst, v);
-				if ( block_type != "singleton" ){
-//					size_type d = get_block_depth(cst, lb, rb);
-					for (size_type i=lb; i <= rb; ++i){
-							index.push_back( i );
-//							fringe_depth.push_back( std::max( cst.lcp[i], d ) );
-							fringe_depth.push_back( cst.lcp[i] );
-					}
-				}
-			}
-		}
-	}
-	out << "\\markfixedfringes{";
-	write_tikz_array(out, index );
-	out << "}{" ;
-	write_tikz_array(out, fringe_depth );
-	out << "}{" <<  fringe_len;
-	out << "}{st_right_fringe}" << endl;
-}
-
-
-template<class tCst>
-void write_tikz_fringe_left(std::ostream &out, const tCst &cst, const bit_vector &bf, size_type b, size_type fringe_len){
-	typedef typename tCst::node_type node_type;
-	vector<size_type> index;
-	vector<size_type> fringe_depth;
-	for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it){
-		if ( it.visit() == 1 ){
-			node_type v = *it;
-			if ( cst.leaves_in_the_subtree(v) <= b ){
-				size_type lb = cst.lb(v), rb = cst.rb(v);
-				it.skip_subtree();
-				string block_type = classify_block(cst, v);
-				if ( block_type != "singleton" ){
-					size_type d = cst.lcp[lb];//get_block_depth(cst, lb, rb);
-					index.push_back( lb );
-					fringe_depth.push_back( d );
-					size_type known = d+fringe_len;
-					for (size_type i=lb+1; i <= rb; ++i){
-						index.push_back( i );
-						if ( cst.lcp[i] > known ) {	
-							fringe_depth.push_back( known );
-							known += fringe_len;
-						}else{ // cst.lcp[i] <= known
-							known = cst.lcp[i];	
-							fringe_depth.push_back( known );
-							known += fringe_len;
-						}
-					}
-				}
-			}
-		}
-	}
-	out << "\\markfixedfringes{";
-	write_tikz_array(out, index );
-	out << "}{" ;
-	write_tikz_array(out, fringe_depth );
-	out << "}{" <<  fringe_len;
-	out << "}{st_left_fringe}" << endl;
-}
-
-template<class tCst>
-void write_tikz_fringe_full(std::ostream &out, const tCst &cst, const bit_vector &bf, size_type b){
-	typedef typename tCst::node_type node_type;
-	const size_type fringe_len = 1;
-	vector<size_type> index;
-	vector<size_type> fringe_depth;
-	vector<size_type> fringe_size;
-	for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it){
-		if ( it.visit() == 1 ){
-			node_type v = *it;
-			if ( cst.leaves_in_the_subtree(v) <= b ){
-				size_type lb = cst.lb(v), rb = cst.rb(v);
-				it.skip_subtree();
-				string block_type = classify_block(cst, v);
-				if ( block_type != "singleton" ){
-					size_type d = get_block_depth(cst, lb, rb);
-					index.push_back( lb );
-					fringe_depth.push_back( d );
-					fringe_size.push_back( fringe_len );
-					size_type known = d+fringe_len;
-					for (size_type i=lb+1; i <= rb; ++i){
-						index.push_back( i );
-						if ( cst.lcp[i] < known ) {
-							known = cst.lcp[i];
-							fringe_depth.push_back( known );
-							fringe_size.push_back( fringe_len );
-							known += fringe_len;
-						}else{ // known < cst.lcp[i]
-							fringe_depth.push_back( known );
-							fringe_size.push_back( cst.lcp[i]-known+fringe_len );
-							known = cst.lcp[i] + fringe_len;
-						}
-					}
-				}
-			}
-		}
-	}
-	out << "\\markvarfringes{";
-	write_tikz_array(out, index );
-	out << "}{" ;
-	write_tikz_array(out, fringe_depth );
-	out << "}{" ;
-	write_tikz_array(out, fringe_size );
-	out << "}{st_full_fringe}" << endl;
-}
-
-template<class tCst>
-void write_tikz_fringe_simple(std::ostream &out, const tCst& cst, const bit_vector &bf, size_type b, size_type fringe_len){
-	typedef typename tCst::node_type node_type;
-	vector<size_type> index;
-	vector<size_type> fringe_depth;
-	for (typename tCst::const_iterator it = cst.begin(), end=cst.end(); it!=end; ++it){
-		if ( it.visit() == 1 ){
-			node_type v = *it;
-			if ( cst.leaves_in_the_subtree(v) <= b ){
-				size_type lb = cst.lb(v), rb = cst.rb(v);
-				it.skip_subtree();
-				node_type p = cst.parent(v);
-				size_type block_depth = cst.depth(p)+1;
-				string block_type = classify_block(cst, v);
-				for(size_type i=lb; i <= rb; ++i){
-					if( block_type != "singleton"){
-						index.push_back( i );
-						fringe_depth.push_back( block_depth );
-					}
-				}
-			}
-		}
-	}
-	out << "\\markfixedfringes{";
-	write_tikz_array(out, index );
-	out << "}{" ;
-	write_tikz_array(out, fringe_depth );
-	out << "}{" <<  fringe_len;
-	out << "}{st_simple_fringe}" << endl;
-}
-
-
-
 template<class tCsa>
 vector<string> extract_sorted_suffixes_for_latex(const tCsa &csa){
 	vector<string> text(csa.size());
@@ -206,7 +54,7 @@ template<class tCsa, class tBitVector>
 void write_tikz_output_bwd(ostream &out, const tCsa &csa, const tBitVector &bf, const tBitVector &bl,  
 		                   const bit_vector &bm, size_type b,
 		                   const vector<bwd_block_info> &fwd_blocks_in_bwd,
-						   const int_vector<> min_depth){
+						   const int_vector<> &min_depth){
 	typedef bit_vector::size_type size_type;
 	begin_tikzpicture(out, "font=\\tt, inner sep=0.1mm, remember picture");
 	write_y_column(out, csa.size()+1);
@@ -225,8 +73,6 @@ void write_tikz_output_bwd(ostream &out, const tCsa &csa, const tBitVector &bf, 
 	write_tikz_array(out, bm, "bmArray");
 	write_tikz_array(out, min_depth, "minDepthArray");
 }
-
-
 
 template<class tCst>
 void write_tikz_output_fwd(ostream &out, const tCst &cst, const bit_vector &bf, size_type b, const vector<block_node> &v_block,
@@ -274,6 +120,10 @@ void write_tikz_output_fwd(ostream &out, const tCst &cst, const bit_vector &bf, 
 			}
 		}
 	}
+	// replace above thing with scan of external index 
+	
+
+
 	for (size_t i=0; i < edges.size(); ++i) {
 		out << "\\intervaledge{" << edges[i].first << "}{" << edges[i].second << "}{draw=gray}" << endl;
 	}
@@ -284,10 +134,6 @@ void write_tikz_output_fwd(ostream &out, const tCst &cst, const bit_vector &bf, 
 		out << "\\blockinfo{" << i << "}{" << v_block[i].delta_x << "}{" << v_block[i].delta_d << "}{" 
 		    << v_block[i].dest_block << "}{" << v_block[i].bwd_id << "}" << endl;
 	}
-	write_tikz_fringe_right(out, cst, bf, b, 2);
-	write_tikz_fringe_left(out, cst, bf, b, 2);
-	write_tikz_fringe_full(out, cst, bf, b);
-	write_tikz_fringe_simple(out, cst, bf, b, 2);
 
 	for (size_t i=0; i < external_blocks.size(); ++i){
 		if( external_blocks[i].size() > 0 ){

@@ -1,11 +1,13 @@
 #ifndef ROSA_PATTERN_FILE
 #define ROSA_PATTERN_FILE
 
+#include "bu_interval.hpp"
 #include <sdsl/int_vector.hpp> // for bit_vector
 #include <sdsl/util.hpp> // for read_member
 #include <cstdlib> // for rand()
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 using namespace sdsl;
 using namespace std;
@@ -65,6 +67,8 @@ class pattern_file{
 	void generate_restricted(const tCst &cst, const char *text_file_name, size_type pattern_cnt, 
 							 size_type pattern_len, size_type min_occ, size_type max_occ);
 
+	void generate_restricted(const char* lcp_file, const char *sa_file, const char *text_file_name, size_type pattern_cnt, 
+							 size_type pattern_len, size_type min_occ, size_type max_occ);
 	//! Destructor
 	~pattern_file();
 
@@ -74,10 +78,12 @@ class pattern_file{
 	 */
 	const char* get_next_pattern();
 
+	//! Processing function for  the bottom-up traversal. 
+	void get_candidate(bu_interval *v, size_t pattern_len, size_t min_occ, size_t max_occ, std::vector<size_t> &candidates);
+
 	//! Remove the associated pattern file from disk.
 	void remove();
 };
-
 
 template<class tCst>
 void pattern_file::generate_restricted(const tCst &cst, const char *text_file_name, size_type pattern_cnt, 

@@ -392,12 +392,6 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_tikz) {
-        tIDX index;
-        generate_index(index, input_file_name.c_str(), b, true, true, tmp_file_dir.c_str(), output_dir.c_str());
-        return 0;
-    }
-
     if (interactive) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, output_dir.c_str());
@@ -434,7 +428,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq) {
+    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq or output_tikz) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
@@ -458,6 +452,8 @@ int main(int argc, char* argv[])
 				index.reconstruct_text();
 			}else if (factor_occ_freq){
 				index.factor_frequency();
+			}else if(output_tikz){
+				index.output_tikz();
 			}
         } else {
             std::cerr << "ERROR: could not open file "<< int_idx_file_name << endl;

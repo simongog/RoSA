@@ -1,14 +1,13 @@
 #include "pattern_file.hpp"
 #include <sdsl/testutils.hpp>
+#include <stack>
 
-pattern_file::pattern_file(const char* pattern_file_name):pattern_cnt(m_pattern_cnt), pattern_len(m_pattern_len), swaps(m_swaps)
-{
+pattern_file::pattern_file(const char* pattern_file_name):pattern_cnt(m_pattern_cnt), pattern_len(m_pattern_len), swaps(m_swaps) {
     m_buf = NULL;
     m_pattern_file_name = string(pattern_file_name);
 }
 
-void pattern_file::reset()
-{
+void pattern_file::reset() {
     if (m_pattern_stream.is_open()) {
         m_pattern_stream.close();
     }
@@ -38,8 +37,7 @@ void pattern_file::reset()
  *      we chose \f$swaps\f$ times a random position \f$r\f$ in [0..pattern_len-2] and swap characters
  *      \f$P[r]\f$ and \$fP[r+1]\f$.
  */
-void pattern_file::generate(const char* text_file_name, size_type pattern_cnt, size_type pattern_len, size_type swaps)
-{
+void pattern_file::generate(const char* text_file_name, size_type pattern_cnt, size_type pattern_len, size_type swaps) {
     m_pattern_cnt = pattern_cnt;
     m_pattern_len = pattern_len;
     m_swaps		  = swaps;
@@ -81,8 +79,7 @@ void pattern_file::generate(const char* text_file_name, size_type pattern_cnt, s
     }
 }
 
-pattern_file::~pattern_file()
-{
+pattern_file::~pattern_file() {
     if (m_buf != NULL) {
         delete [] m_buf;
     }
@@ -91,13 +88,74 @@ pattern_file::~pattern_file()
     }
 }
 
-const char* pattern_file::get_next_pattern()
-{
+const char* pattern_file::get_next_pattern() {
     m_pattern_stream.read(m_buf, m_pattern_len);
     return m_buf;
 }
 
-void pattern_file::remove()
-{
+void pattern_file::remove() {
     std::remove(m_pattern_file_name.c_str());
+}
+
+void pattern_file::generate_restricted(const char* lcp_file, const char *sa_file, const char *text_file_name, size_type pattern_cnt, 
+							 size_type pattern_len, size_type min_occ, size_type max_occ){
+	typedef int_vector<>::size_type size_type;
+	int_vector_file_buffer<> lcp_buf(lcp_file);
+	bu_interval root(0,0,0);
+	bu_interval *last_interval = NULL;
+	m_pattern_cnt = pattern_cnt;
+	m_pattern_len = pattern_len;
+	std::stack<bu_interval*> stk;
+	std::vector<size_t> candidates;
+	stk.push(&root);
+	for (size_type i=0,r=0,r_sum=0; i < lcp_buf.int_vector_size;) { 
+		for (; i < r+r_sum; ++i) {
+			if (i > 0 ){
+				uint64_t lcp = lcp_buf[i-r_sum];
+				size_type lb = i-1;
+				while ( lcp < stk.top()->lcp ){
+					stk.top()->rb = i-1;
+					last_interval = stk.top(); stk.pop();
+					// process node
+					get_candidate(last_interval, pattern_len, min_occ, max_occ, candidates);
+					lb = last_interval->lb;
+					if ( lcp <= stk.top()->lcp ){
+						stk.top()->children.push_back(last_interval);
+						last_interval = NULL;
+					}
+				}
+				if ( lcp > stk.top()->lcp ){
+					bu_interval *v = new bu_interval(lb, 0, lcp);
+					if ( last_interval != NULL ){
+						v->children.push_back(last_interval);
+						last_interval = NULL;
+					}
+					stk.push(v);
+				}
+			}
+			bu_interval *leaf = new bu_interval(i,i, lcp_buf.int_vector_size);
+			stk.top()->children.push_back(leaf);
+		}
+		r_sum += r; r = lcp_buf.load_next_block();
+	}
+	while ( !stk.empty() ){
+		stk.top()->rb = lcp_buf.int_vector_size-1;
+		last_interval = stk.top(); stk.pop();
+		// process node
+		get_candidate(last_interval, pattern_len, min_occ, max_occ, candidates);
+	}
+	
+}
+
+void pattern_file::get_candidate(bu_interval* v, size_t pattern_len, size_t min_occ, size_t max_occ, std::vector<size_t> &candidates){
+	if ( v->lcp < pattern_len ){ // if depth of node is smaller than the desired pattern_len
+		for (size_t i=0; i<v->children.size(); ++i){   // iterate over all children
+			if ( v->children[i]->lcp >= pattern_len ){ // and check, if the depth is greater or equal than pattern_len
+				size_type occ = v->children[i]->size();
+				if ( min_occ <= occ and occ <= max_occ ){ // if frequency constraints are meet
+					candidates.push_back( v->children[i]->lb ); // add candidate
+				}
+			}
+		}
+	}
 }

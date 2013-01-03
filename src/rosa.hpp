@@ -647,15 +647,7 @@ class rosa {
                 size_type fwd_id = fwd_bf_rank(fwd_lb+1)-1; // calculate corresponding forward id
                 v_block[fwd_id].bwd_id = bwd_id;
                 if (map_info[bwd_id].size == 1) {
-//					std::cout<<"bwd_id="<<bwd_id<<" fwd_lb="<<fwd_lb<<" map_info.size()="<<map_info.size()<<std::endl;
 					m_pointer[bwd_id] = block_sa[fwd_id];
-/*					
-					uint64_t x = block_sa[fwd_id];
-                    m_pointer[bwd_id] =  csa[fwd_lb]; // insert SA value for singleton blocks
-					if ( x != m_pointer[bwd_id] ){
-						std::cout<<"x="<<x<<" m_pointer[bwd_id]="<<m_pointer[bwd_id]<<" fwd_lb="<<fwd_lb<<std::endl;
-					}
-*/					
 					is_singleton[bwd_id] = 1;
                 }
             }
@@ -727,6 +719,8 @@ class rosa {
 				int_vector<64> lcp_buf(m_b+1, 0);
 //				int_vector<> lcp;
 //				util::load_from_file(lcp, lcp_file);
+				size_type sa_size_in_bytes = 0;
+				size_type sa_size_in_bytes1 = 0;
 
                 for (size_t fwd_id=0; fwd_id < header_of_external_block.size(); ++fwd_id) {
                     if (header_of_external_block[fwd_id].size() > 0) { // if it is an irreducible block
@@ -754,10 +748,19 @@ class rosa {
 //						cout<<"["<<lb<<","<<rb<<"]"<<endl;
 						//             sa_buf and lcp_buf store block_len+1 integers 
                         db.set_content(sa_buf, lcp_buf, (const unsigned char*)text, block_len);
+						sa_size_in_bytes1 += util::get_size_in_bytes(db.sa);
+
+						sa_size_in_bytes += 9 + (((bit_magic::l1BP(block_len)+1)*block_len+63)/64)+8;
+						sort(sa_buf.begin(), sa_buf.begin()+block_len);
+						size_type sa_diff_bits = coder::elias_delta::encoding_length(sa_buf[0]);
+						for (size_t i=0; i < block_len; ++i){
+							sa_diff_bits += coder::elias_delta::encoding_length(sa_buf[i]-sa_buf[i-1]);
+						}
+						sa_size_in_bytes += ((sa_diff_bits+63)/64)*8;
+
                         block_addr[fwd_id] = ext_idx_size_in_bytes;
                         ext_idx_size_in_bytes += db.serialize(ext_idx_out);
                         total_header_in_bytes += db.header_size_in_bytes();
-
 						sa_buf[0] = sa_buf[block_len];
 						lcp_buf[0] = lcp_buf[block_len];
                     }
@@ -766,6 +769,8 @@ class rosa {
                 delete [] text;
                 if (util::verbose)cout<<"# ext_idx_size_in_MB = "<<ext_idx_size_in_bytes/(1024.0*1024.0)<<"\n";
                 if (util::verbose)cout<<"# ext_idx_header_size_in_MB = "<<total_header_in_bytes/(1024.0*1024)<<"\n";
+				if (util::verbose)cout<<"# sa_size_in_MB = " << ((double)sa_size_in_bytes)/(1024*1024.0) << "\n";
+				if (util::verbose)cout<<"# sa_size1_in_MB = " << ((double)sa_size_in_bytes1)/(1024*1024.0) << "\n";
                 for (size_t fwd_idx = 0; fwd_idx < v_block.size(); ++fwd_idx) {
                     size_type lb = fwd_bf_select(fwd_idx+1);
                     if (!fwd_bf[lb+1]) {  // if not a singleton interval
@@ -800,6 +805,66 @@ class rosa {
             util::assign(m_wt, wavelet_tree_type(temp_bwt_buf, cn));
             std::remove(tmp_file_name.c_str()); // remove file of BWT'
         }
+
+		void output_tikz(){
+            string base_name = util::basename(file_name)+"."+util::to_string(m_b);
+            string bwd_csa_file_name = base_name + ".tikz." + TMP_BWD_CSA_SUFFIX;
+			ofstream bwd_out((base_name+".bwd_idx.tex").c_str());
+			tCsa bwd_csa;
+            construct_or_load_bwd_csa(bwd_csa, bwd_csa_file_name, "./", true);
+			std::vector<bwd_block_info> fwd_blocks_in_bwd;
+			size_type max_bwd_id = m_k;
+			for (size_type bwd_id=0; bwd_id<max_bwd_id; ++bwd_id){
+				fwd_blocks_in_bwd.push_back(bwd_id_to_info(bwd_id));
+			}
+			write_tikz_output_bwd(bwd_out, bwd_csa, m_bf, m_bl, m_bm, m_b, fwd_blocks_in_bwd, m_min_depth);
+
+			
+			ofstream factor_out((base_name+".fac.tex").c_str());
+				
+			int_vector<> factorization;
+			util::load_from_file(factorization, get_factorization_filename().c_str());
+			write_tikz_array(factor_out, factorization, "facArray");
+			int_vector<> factor_len(factorization.size(), 0);
+			for (size_type i=0; i <factorization.size() ; ++i){
+				string factor;
+				extract_factor(factorization[i], factor);
+				factor_len[i] = factor.size();
+			}
+			write_tikz_array(factor_out, factor_len, "facLen");
+			string tmp = algorithm::extract(bwd_csa, 0, bwd_csa.size()-1);
+			vector<string> text(tmp.size());
+			for (int i=tmp.size()-2; i>=0; --i)
+				text[tmp.size()-2-i] = util::to_latex_string((unsigned char)tmp[i]);
+			text[tmp.size()-1] = util::to_latex_string((unsigned char)tmp[tmp.size()-1]);
+			write_tikz_array(factor_out, text, "FwdText", true);
+/*
+			ofstream fwd_out((base_name+".fwd_idx.tex").c_str());
+	        m_ext_idx.seekg(0, std::ios::end);
+            std::streampos end = m_ext_idx.tellg(); // get the end position
+            seekg(m_ext_idx, 0, false); // load the first block
+            // iterate through all blocks
+            while (m_ext_idx.tellg() < end) {
+                disk_block db;
+                db.load(m_ext_idx); // load block
+
+                ++k_ir;             // increase number of irreducible blocks
+                k_re += (db.header.size()-1); // increase the number of reducible blocks
+                n_ir += db.sa.size();
+
+                header_in_megabyte += util::get_size_in_mega_bytes(db.header);
+                lcp_in_megabyte += util::get_size_in_mega_bytes(LcpSerializeWrapper(db.lcp));
+                sa_in_megabyte += util::get_size_in_mega_bytes(db.sa);
+// TODO: how to calculate fwd_id from bwd_id ??? 
+
+                for (size_type i=0; i<db.header.size(); ++i) {
+                    size_type bwd_id, delta_x, delta_d;
+                    db.decode_header_triple(i, bwd_id, delta_x, delta_d);
+					
+                }
+            }		
+*/			
+		}
 
 
         //! Constructor
@@ -1212,31 +1277,50 @@ class rosa {
             }
             size_type lb		= m_bf_select(ones + 1);
             unsigned char c = '\0';
-//            stack<unsigned char> factor;
 			factor_string.resize(depth);
+			size_type i=depth-1;
+			do{
+                c = first_row_character(lb);
+				factor_string[i] = c;
+				if ( i > 0 ){
+					--i;
+				}else
+					break;
+                size_type c_rank = m_bf_rank(lb)+m_bf[lb]-m_cC[m_char2comp[c]];
+                size_type cpos   = m_wt.select(c_rank, c);
+                lb = m_bl_select(cpos+1);
+            }while(true);
+        }
+		
+		bwd_block_info bwd_id_to_info(size_type bwd_id){
+	            size_type zero_pos	= m_bm_0_select(bwd_id+1);
+            size_type ones 		= zero_pos - bwd_id; // ones in bm[0..zero_pos)
+            size_type depth_idx = m_bm_10_rank(zero_pos+1);
+            size_type depth		= m_min_depth[depth_idx];
+            if (ones) {
+                depth += zero_pos - 1 - m_bm_1_select(ones);
+            } else {
+                depth += zero_pos;
+            }
+            size_type lb		= m_bf_select(ones + 1);
+            unsigned char c = '\0';
+            stack<unsigned char> factor;
             for (size_type i=0, _lb = lb; i < depth; ++i) {
                 c = first_row_character(_lb);
-				factor_string[depth-i-1] = c;
-//                factor.push(c);
-//                size_type c_rank = m_bf_rank(_lb)+1-m_cC[m_char2comp[c]];
-
-                size_type c_rank = m_bf_rank(_lb)-(m_bf[_lb]==0)+1-m_cC[m_char2comp[c]];
+                factor.push(c);
+                size_type c_rank = m_bf_rank(_lb)+m_bf[_lb]-m_cC[m_char2comp[c]];
                 size_type cpos   = m_wt.select(c_rank, c);
                 _lb = m_bl_select(cpos+1);
             }
-/*
             size_type rb = m_n-1;
             while (!factor.empty()) {
                 size_type rb1 = m_bl_rank(rb+1);
                 c = factor.top(); factor.pop();
-				cout<<c;
                 size_type rb2 = m_wt.rank(rb1, c);
                 rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
             }
-			cout<<endl;
-            cout<<"extract_factor("<<bwd_id<<")="<<depth<<"-["<<lb<<","<<rb<<"]"<<endl;
-*/			
-        }
+			return bwd_block_info(lb, rb+1, depth, bwd_id);
+		}
 
         unsigned char first_row_character(size_type i)const {
 			// transform position in BWT into position in condensed BWT

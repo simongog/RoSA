@@ -6,6 +6,7 @@ CFLAGS=-O3 -funroll-loops -msse4.2 -DMEM_INFO -DOUTPUT_STATS -DMEM_INFO -DWRITE_
 
 all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_helping_functions.o \
+	 ${BIN_DIR}/bu_interval.o \
 	 ${BIN_DIR}/pattern_file.o \
 	 ${BIN_DIR}/rosa_sd2_delta 
 #	 ${BIN_DIR}/rosa_sd2\ 
@@ -24,22 +25,27 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 ${BIN_DIR}/rosa_helping_structures.o:
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -c ${SRC_DIR}/rosa_helping_structures.cpp -o ${BIN_DIR}/rosa_helping_structures.o
 
-${BIN_DIR}/rosa_helping_functions.o:
+${BIN_DIR}/bu_interval.o: ${SRC_DIR}/bu_interval.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -c ${SRC_DIR}/bu_interval.cpp -o ${BIN_DIR}/bu_interval.o
+
+${BIN_DIR}/rosa_helping_functions.o: ${SRC_DIR}/rosa_helping_functions.cpp
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -c ${SRC_DIR}/rosa_helping_functions.cpp -o ${BIN_DIR}/rosa_helping_functions.o
 
-${BIN_DIR}/pattern_file.o:
+${BIN_DIR}/pattern_file.o: ${SRC_DIR}/pattern_file.cpp
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -c ${SRC_DIR}/pattern_file.cpp -o ${BIN_DIR}/pattern_file.o
 
-${BIN_DIR}/rosa_sd2: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
+${BIN_DIR}/rosa_sd2: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} \
 	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2 \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_sd2_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
+${BIN_DIR}/rosa_sd2_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1\
 	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
 ${BIN_DIR}/rosa_sd_load_only: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
