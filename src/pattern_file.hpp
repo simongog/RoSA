@@ -78,6 +78,9 @@ class pattern_file{
 	 */
 	const char* get_next_pattern();
 
+	//! Pointer to current pattern.
+	const char* get_pattern();
+
 	//! Processing function for  the bottom-up traversal. 
 	void get_candidate(bu_interval *v, size_t pattern_len, size_t min_occ, size_t max_occ, std::vector<size_t> &candidates);
 

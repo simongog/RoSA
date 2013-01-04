@@ -126,8 +126,8 @@ class rosa {
 		mutable ifstream		m_glz_text;   // stream to the factored text 
         mutable ifstream		m_ext_idx;    // stream to the external memory part
         unsigned char*			m_buf;		  // buffer for the text read from disk to match against the pattern
-		uint64_t*      			m_buf_lz;
-        const size_type  		m_buf_size;   // buffer
+		const uint64_t*      	m_buf_lz;
+        size_type  				m_buf_size;   // buffer
 
 #ifdef OUTPUT_STATS
         mutable size_type m_count_disk_access; 		// see corresponding public member
@@ -582,6 +582,9 @@ class rosa {
         }
 
         void calculate_bm_and_min_depth(const vector<block_info>& map_info, const size_type f_k) {
+			if (util::verbose) cout<<"m_k="<<m_k<<endl;
+			if (util::verbose) cout<<"f_k="<<f_k<<endl;
+			if (util::verbose) cout<<"map_info.size()="<<map_info.size()<<endl;
             m_bm = bit_vector(f_k     + m_bf_rank(m_bf.size()), 0);
 //                                 ^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^
 //                                 # of 0s        # of 1s
@@ -604,7 +607,7 @@ class rosa {
             util::init_support(m_bm_0_select, &m_bm); if (util::verbose) cout<<"m_bm_0_select was assigned.\n";
             util::init_support(m_bm_10_rank, &m_bm); if (util::verbose) cout<<"m_bm_10_rank was assigned.\n";
             m_min_depth.set_int_width(bit_magic::l1BP(max_min_depth)+1);
-            m_min_depth.resize(m_bm_10_rank(m_bm.size()));
+            m_min_depth.resize(m_bm_10_rank(m_bm.size())+1);
             // insert min_depth information
             for (size_type i=1, j=0, k=0, end=m_bf_rank(m_bf.size()); i < end; ++i) {
                 size_type lb = m_bf_select(i);
@@ -753,7 +756,7 @@ class rosa {
 						sa_size_in_bytes += 9 + (((bit_magic::l1BP(block_len)+1)*block_len+63)/64)+8;
 						sort(sa_buf.begin(), sa_buf.begin()+block_len);
 						size_type sa_diff_bits = coder::elias_delta::encoding_length(sa_buf[0]);
-						for (size_t i=0; i < block_len; ++i){
+						for (size_t i=1; i < block_len; ++i){ 
 							sa_diff_bits += coder::elias_delta::encoding_length(sa_buf[i]-sa_buf[i-1]);
 						}
 						sa_size_in_bytes += ((sa_diff_bits+63)/64)*8;
@@ -929,6 +932,19 @@ class rosa {
             write_R_output("fwd_csa","construct","begin");
             construct_or_load_fwd_csa(fwd_csa, fwd_csa_file_name, tmp_dir, delete_tmp);
             write_R_output("fwd_csa","construct","end");
+			write_R_output("lcp","construct","begin");
+			{
+				ifstream lcp_in(lcp_file.c_str());
+				if (!lcp_in){ // if the lcp file does not exist: construct it
+					int_vector<> lcp;
+					config.file_map[constants::KEY_SA] = sa_file;
+					config.file_map[constants::KEY_TEXT] = util::cache_file_name(constants::KEY_TEXT, config);
+					construct_lcp_kasai(lcp, config );
+					util::store_to_file(lcp, lcp_file.c_str());
+				}
+			}
+			write_R_output("lcp","construct","end");
+			
 /*
 			std::string check_text = algorithm::extract(fwd_cst.csa, 0, fwd_cst.csa.size()-1);
 			ofstream check_out((util::basename(file_name)+".check_text").c_str());
@@ -944,6 +960,7 @@ class rosa {
 //            mark_blocks(fwd_cst, fwd_bf, b, m_k);
 
 			mark_blocks(lcp_file.c_str(), fwd_bf, b, m_k); 
+			cout<<"mark blocks: m_k="<<m_k<<endl;
             write_R_output("fwd_bf","construct","end");
             util::clear(fwd_csa);  if (util::verbose) cout<<"cleared fwd_csa"<<endl;
 //          (3) Load or construct the backward CSA
@@ -1032,6 +1049,7 @@ class rosa {
             for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
                 for (; i < r+r_sum; ++i) {
 					string factor_string;
+					assert(glz_buf[i-r_sum]<m_k);
                    	extract_factor(glz_buf[i-r_sum],factor_string);
 					if ( i+1 == glz_buf.int_vector_size ){
 						factor_string = factor_string.substr(0, factor_string.size()-1);
@@ -1266,9 +1284,19 @@ class rosa {
         }
 
         void extract_factor(size_type bwd_id, string &factor_string)const {
+			if(util::verbose){
+				cout<<"extract_factor: bwd_id="<<bwd_id<<endl;
+				cout<<"m_bm.size()="<<m_bm.size()<<" m_k="<<m_k<<endl;
+			}
+			assert ( bwd_id < m_k );
             size_type zero_pos	= m_bm_0_select(bwd_id+1);
+
             size_type ones 		= zero_pos - bwd_id; // ones in bm[0..zero_pos)
             size_type depth_idx = m_bm_10_rank(zero_pos+1);
+			if(util::verbose){
+				cout<<"extract_factor: depth_idx="<<depth_idx<<endl;
+				cout<<"m_min_depth.size()="<<m_min_depth.size()<<endl;
+			}
             size_type depth		= m_min_depth[depth_idx];
             if (ones) {
                 depth += zero_pos - 1 - m_bm_1_select(ones);
@@ -1278,6 +1306,9 @@ class rosa {
             size_type lb		= m_bf_select(ones + 1);
             unsigned char c = '\0';
 			factor_string.resize(depth);
+			if(util::verbose){
+				cout<<"extract_factor: depth="<<depth<<endl;
+			}
 			size_type i=depth-1;
 			do{
                 c = first_row_character(lb);
@@ -1399,6 +1430,7 @@ class rosa {
 							if (rb-lb+1 <= m_b) { // reached 
 								factor_borders[i] = 1;
 								size_type bwd_id = get_bwd_id(lb, d);
+								assert(bwd_id < m_k);
 								write_factor(bwd_id, factor_stream, num_bytes);
 								++factors;
 								lb = 0; rb=m_n-1; d=0;
@@ -1809,16 +1841,26 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 			if ( util::verbose ) cout<<"lz_offset = "<<lz_offset<<"  /  lz_size = "<<m_lz_size<<endl;
 			if ( util::verbose ) cout<<"lz_bit_offset = "<<lz_bit_offset<<endl;
 			
-			seekg(m_glz_text, 9+((lz_bit_offset)/64)*8);
+			seekg(m_glz_text, ((lz_bit_offset)/64)*8+9);
 			
 			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
 			calculate_kmp_table(pattern, m, kmp_table);
 //TODO: handle the case where we load multiple blocks form disk				
 			size_type len = ((m_lz_width*(lz_offset+m)-1)/64)-((m_lz_width*lz_offset)/64)+1; // len in 64 bit words
 			len = std::min(len, m_buf_size);
+			
+			size_type cur_end_word = (m_lz_width*lz_offset)/64+len;
+			size_type the_end_word = (m_lz_width*m_lz_size+63)/64;
+			if ( cur_end_word > the_end_word ){ // check that we don't go beyond EOF
+			    len = the_end_word - ((m_lz_width*lz_offset)/64);
+			}
+
 			if ( util::verbose ) cout<<"len="<<len<<endl;
 			size_type matched = 0;
+			
+			/// TODO take care about failbit!!!
 
+//			cout<<"m_glz_text.fail()="<<m_glz_text.fail()<<endl;
 			m_glz_text.read((char*)m_buf_lz, 8*len);
 				
 			uint8_t bit_offset = lz_bit_offset&0x3F;
@@ -1829,16 +1871,20 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 				++lz_offset;
 				if ( util::verbose ) cout << "factor id=" << factor_id << 
 					" word="<<word <<
-					" bit_offset="<<(int)bit_offset<< " m_lz_width="<<m_lz_width << endl;
+					" bit_offset="<<(int)bit_offset<< " m_lz_width="<<(int)m_lz_width << endl;
 				string factor_string;
 				extract_factor(factor_id, factor_string); 
 				if ( util::verbose ) cout << "factor string=" << factor_string << endl;
 				for(size_type i=0; i<factor_string.size(); ){
-					if ( factor_string[i] == pattern[matched] ){
+					if ( (unsigned char)factor_string[i] == pattern[matched] ){
 						if (matched==m-1)
 							return true;
 						++i; ++matched;
 					}else{
+//						if( util::verbose  and factor_string.size()==67){
+//							cout<<"factor_string["<<i<<"]="<<factor_string[i]<<"!="<<pattern[matched]<<"=pattern["<<matched<<"]"<<endl;
+//							cout<<(int)factor_string[i]<<"!="<<(int)pattern[matched]<<endl;
+//						}
 						if ( matched > 0 ){
 							matched = kmp_table[matched-1];
 						}else{
@@ -1846,6 +1892,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 						}
 					}
 				}
+				if( util::verbose ) cout << "matched so far = "<<matched<<endl;
 				if (factor_id==0)
 					break;
 			}

@@ -1,6 +1,7 @@
 #include "pattern_file.hpp"
 #include <sdsl/testutils.hpp>
 #include <stack>
+#include <algorithm>
 
 pattern_file::pattern_file(const char* pattern_file_name):pattern_cnt(m_pattern_cnt), pattern_len(m_pattern_len), swaps(m_swaps) {
     m_buf = NULL;
@@ -18,7 +19,8 @@ void pattern_file::reset() {
         util::read_member(m_pattern_cnt, m_pattern_stream);
         util::read_member(m_pattern_len, m_pattern_stream);
         util::read_member(m_swaps, m_pattern_stream);
-        m_buf = new char[m_pattern_len];
+        m_buf = new char[m_pattern_len+1];
+		m_buf[m_pattern_len]='\0';
     } else {
         std::cerr << "ERROR: Could not open pattern file " << m_pattern_file_name << endl;
     }
@@ -93,6 +95,10 @@ const char* pattern_file::get_next_pattern() {
     return m_buf;
 }
 
+const char* pattern_file::get_pattern(){
+	return m_buf;
+}
+
 void pattern_file::remove() {
     std::remove(m_pattern_file_name.c_str());
 }
@@ -144,7 +150,89 @@ void pattern_file::generate_restricted(const char* lcp_file, const char *sa_file
 		// process node
 		get_candidate(last_interval, pattern_len, min_occ, max_occ, candidates);
 	}
-	
+
+	// process candidates
+	bit_vector already_used(candidates.size(), 0);
+	std::ofstream pattern_stream( m_pattern_file_name.c_str() );
+	if ( pattern_stream ){
+		if ( candidates.size() == 0 ){
+			m_pattern_cnt = 0;
+			std::cerr << "Found no candidates for pattern_len = "<< pattern_len << std::endl;
+			std::cerr << "min_occ = "<< min_occ << " and max_occ = " << max_occ << std::endl;
+		}else if( candidates.size() < 100 ){
+			std::cerr << "Less then 100 candidates for pattern_len = " << pattern_len << std::endl;
+			std::cerr << "min_occ = "<< min_occ << " and max_occ = " << max_occ << std::endl;
+		}else{
+			std::cerr << candidates.size() << " candidates for pattern_len = " << pattern_len << std::endl;
+			std::cerr << "min_occ = "<< min_occ << " and max_occ = " << max_occ << std::endl;
+		}
+		util::write_member(m_pattern_cnt, pattern_stream); 
+		util::write_member(m_pattern_len, pattern_stream); 
+		util::write_member(m_swaps, pattern_stream); 
+		if ( candidates.size() > 0 ) {
+
+			ifstream text_stream(text_file_name);	
+			if ( text_stream ){
+				std::vector<size_t> sa_indexes;
+				for (size_type i=0, j, k; i < pattern_cnt; ++i){
+					j=rand()%candidates.size();
+					if ( already_used[j] ) {
+						// find next free location 
+						size_type j1=j+1;
+						while ( j1 < already_used.size() and already_used[j1] ){
+							++j1;
+						}
+						if ( j1 >= already_used.size() ){
+							j1 = j;
+						}
+						j = j1;
+					}
+					sa_indexes.push_back(candidates[j]);
+
+					already_used[j] = 1;
+				}
+
+				int_vector_file_buffer<> sa_buf(sa_file);
+				size_t idx_sa_indexes = 0;
+				std::cerr<<"--sort sa_indexes--"<<std::endl;
+				std::sort(sa_indexes.begin(), sa_indexes.end());
+				std::cerr<<"--stream sa--"<<std::endl;
+				char *pattern_buf = new char[pattern_len+1];
+				pattern_buf[pattern_len] = '\0';
+				for (size_type i=0,r=0,r_sum=0; i < sa_buf.int_vector_size and idx_sa_indexes < sa_indexes.size();) { 
+					for (; i < r+r_sum and idx_sa_indexes < sa_indexes.size(); ++i) {
+						if ( i == sa_indexes[idx_sa_indexes] ){
+//							std::cout<<"idx_sa_indexes="<<idx_sa_indexes<<" sa_indexes["<<idx_sa_indexes<<"]="<<sa_indexes[idx_sa_indexes]<<std::endl;
+							++idx_sa_indexes;
+//							std::cout<<idx_sa_indexes<<" sa_indexes.size()"<<sa_indexes.size()<<endl;
+							size_t sa_val = sa_buf[i-r_sum];
+//							std::cout<<"sa_val="<<sa_val<<std::endl;
+							// extract the pattern
+							text_stream.seekg(sa_val ,std::ios::beg);
+							text_stream.read(pattern_buf, pattern_len);
+//							cout<<pattern_buf<<endl;
+							pattern_stream.write( pattern_buf, pattern_len );
+						}
+					}
+					if ( idx_sa_indexes < sa_indexes.size() ){
+						r_sum += r; r = sa_buf.load_next_block();
+					}
+				}
+				cout<<"--end stream sa"<<endl;
+				delete [] pattern_buf;
+				cout<<"--deleted pattern_buf"<<endl;
+				text_stream.close();
+				cout<<"text_stream.closed"<<endl;
+			}else{
+				std::cerr << "ERROR: Could not open text file " << text_file_name << endl;	
+			}
+		}
+		pattern_stream.close();
+		cout<<"pattern_stream.closed"<<endl;
+	}else{
+		std::cerr << "ERROR: Could not open pattern file " << m_pattern_file_name << endl;
+	}
+	cout<<"end method"<<endl;
 }
 
 void pattern_file::get_candidate(bu_interval* v, size_t pattern_len, size_t min_occ, size_t max_occ, std::vector<size_t> &candidates){
@@ -158,4 +246,5 @@ void pattern_file::get_candidate(bu_interval* v, size_t pattern_len, size_t min_
 			}
 		}
 	}
+	v->delete_children();
 }

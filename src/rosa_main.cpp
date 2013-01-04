@@ -194,11 +194,22 @@ void benchmark(const char* file_name, size_type b, const char* pattern_file_name
         size_type cnt5=0;
         sw.start();
         for (size_type i=0, count=0; i < pf.pattern_cnt; ++i) {
+
+//if ( i>3156 ){
 //std::cerr << "i= " << i << std::endl;
 //std::cerr << "pattern_len = " << pf.pattern_len << std::endl;
-            count = index.count((const unsigned char*)pf.get_next_pattern(), pf.pattern_len, repeated_in_memory_search);
+			const unsigned char* pat = (const unsigned char*)pf.get_next_pattern();
+//if(i!=97)
+//	continue;
+            count = index.count(pat, pf.pattern_len, repeated_in_memory_search);
+//}
             cnt4 += count;
             cnt5 += (count > 0);
+			if ( count == 0 ){
+				cout<<"i="<<i<<endl;
+				std::cerr << "pattern_len = " << pf.pattern_len << std::endl;
+				std::cerr<<"pattern="<<(const char*)pat<<std::endl;			
+			}
         }
         sw.stop();
         cout << "# cnt4 = " << cnt4 << endl;
@@ -240,6 +251,7 @@ void display_usage(char* command)
     cout << " input_file       : file name of the input text" << endl;
     cout << " threshold        : block size threshold b; default=4096" << endl;
     cout << " generate_index   : generates the index" << endl;
+    cout << " generate_patterns: generate a pattern file; default=OFF" << endl;	
     cout << " pattern_len      : length of each generated pattern; default=20" << endl;
     cout << " pattern_number   : number of generated patterns; default=100" << endl;
     cout << " pattern_swaps    : number of swaps applied to the patterns; default=0" << endl;
@@ -286,6 +298,7 @@ int main(int argc, char* argv[])
     int run_benchmark = 0;
     int run_benchmark_int = 0;
     int run_benchmark_ext = 0;
+	int generate_patterns = 0;
     int do_generate_index = 0;
     int delete_tmp_file = 0;
     int delete_index_file = 0;
@@ -309,6 +322,7 @@ int main(int argc, char* argv[])
             {"pattern_swaps", required_argument, 0, 's'},
             {"pattern_min_occ", required_argument, 0, 'x'},
             {"pattern_max_occ", required_argument, 0, 'y'},
+			{"generate_patterns", no_argument, &generate_patterns, 1},
             {"generate_index", no_argument, &do_generate_index, 1},
             {"repeated_in_memory_search", no_argument, &repeated_in_memory_search, 1},
             {"output_mem_info", no_argument, &output_mem_info, 1},
@@ -461,6 +475,41 @@ int main(int argc, char* argv[])
         }
         return 0;
     }
+
+	if (generate_patterns) {
+		if (pattern_file_name == "") {
+			std::string path = get_output_dir(input_file_name.c_str(), output_dir.c_str());
+			pattern_file_name = path + "/" + util::basename(input_file_name) + "." + util::to_string(plen) +
+			"." + util::to_string(pno) +
+			"." + util::to_string(swapno) +
+			"." + util::to_string(pmin_occ) +
+			"." + util::to_string(pmax_occ) +
+				".pattern";
+		}
+		cout << "-- start pattern generation -- " << endl;
+		if (pmin_occ == pmax_occ and pmin_occ == 0) {  // if the occurrence restriction is not initialized
+			pattern_file pf(pattern_file_name.c_str());
+			pf.generate(input_file_name.c_str(), pno, plen, swapno);
+		} else {
+			std::string path = get_output_dir(input_file_name.c_str(), output_dir.c_str())+"/"+util::basename(input_file_name.c_str());
+			string tmp_fwd_cst_file_name = path + "." +TMP_CST_SUFFIX;
+			pattern_file pf(pattern_file_name.c_str());
+
+            string tmp_dir = (util::dirname(tmp_file_dir)+"/"+util::basename(tmp_file_dir)+"/");
+
+            cache_config config(false, tmp_dir, util::basename(input_file_name));
+			string lcp_file = util::cache_file_name(constants::KEY_LCP, config);
+			string sa_file = util::cache_file_name(constants::KEY_SA, config);
+			std::cerr<<"lcp_file = "<<lcp_file<<std::endl;
+			std::cerr<<"sa_file = "<<sa_file<<std::endl;
+			pf.generate_restricted(lcp_file.c_str(), sa_file.c_str(), input_file_name.c_str(), pno, plen, pmin_occ, pmax_occ);
+			cout<<"--"<<endl;
+		}
+		cout << "-- finished pattern generation -- " << endl;
+		cout << "pattern stored in file: " <<pattern_file_name << endl;
+		cout.flush();
+		return 0;
+	}
 
     if (run_benchmark or run_benchmark_int or run_benchmark_ext) {
         if (pattern_file_name == "") {

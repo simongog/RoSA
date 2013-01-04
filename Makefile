@@ -3,6 +3,7 @@ LIB_PATH=./lib
 SRC_DIR=src
 BIN_DIR=bin
 CFLAGS=-O3 -funroll-loops -msse4.2 -DMEM_INFO -DOUTPUT_STATS -DMEM_INFO -DWRITE_R_OUTPUT -DNDEBUG # -DSDSL_DEBUG_ALGORITHMS_FOR_COMPRESSED_SUFFIX_ARRAYS
+#CFLAGS=-O0 -g -funroll-loops -msse4.2 -DMEM_INFO -DOUTPUT_STATS -DMEM_INFO -DWRITE_R_OUTPUT # -DSDSL_DEBUG_ALGORITHMS_FOR_COMPRESSED_SUFFIX_ARRAYS
 
 all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_helping_functions.o \
@@ -41,7 +42,7 @@ ${BIN_DIR}/rosa_sd2: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions
 		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_sd2_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o
+${BIN_DIR}/rosa_sd2_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1\
 	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
