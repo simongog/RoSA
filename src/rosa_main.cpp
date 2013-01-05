@@ -85,14 +85,14 @@ typedef bit_vector::size_type size_type;
 
 
 template<class tIndex>
-void generate_index(tIndex& idx, const char* file_name, size_type b, size_type sa_dens, bool output_tikz=false, bool delete_tmp=false,
+void generate_index(tIndex& idx, const char* file_name, size_type b, size_type fac_dens, bool output_tikz=false, bool delete_tmp=false,
                     const char* tmp_file_dir="./", const char* output_dir=".")
 {
     typedef bit_vector::size_type size_type;
     cerr << "call generate_index " << endl;
 
-    string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, sa_dens, output_dir);
-    string ext_idx_file_name = tIndex::get_ext_idx_filename(file_name, b, sa_dens, output_dir);
+    string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, fac_dens, output_dir);
+    string ext_idx_file_name = tIndex::get_ext_idx_filename(file_name, b, fac_dens, output_dir);
 
     ifstream int_idx_stream(int_idx_file_name.c_str());
     ifstream ext_idx_stream(ext_idx_file_name.c_str());
@@ -103,7 +103,7 @@ void generate_index(tIndex& idx, const char* file_name, size_type b, size_type s
         if (!ext_idx_stream) {
             cerr << "external index is not stored in " << ext_idx_file_name << endl;
         }
-        tIndex index(file_name, b, sa_dens, output_tikz, delete_tmp, tmp_file_dir, output_dir);
+        tIndex index(file_name, b, fac_dens, output_tikz, delete_tmp, tmp_file_dir, output_dir);
         util::store_to_file(index, int_idx_file_name.c_str());
     } else {
         cerr << "internal and external indexes exist." << endl;
@@ -117,10 +117,10 @@ void generate_index(tIndex& idx, const char* file_name, size_type b, size_type s
 
 
 template<class tIndex>
-void delete_index_files(const char* file_name, const char* output_dir, size_type b, size_type sa_dens)
+void delete_index_files(const char* file_name, const char* output_dir, size_type b, size_type fac_dens)
 {
-    string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, sa_dens, output_dir);
-    string ext_idx_file_name = tIndex::get_ext_idx_filename(file_name, b, sa_dens, output_dir);
+    string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, fac_dens, output_dir);
+    string ext_idx_file_name = tIndex::get_ext_idx_filename(file_name, b, fac_dens, output_dir);
 
     std::remove(int_idx_file_name.c_str());
     std::remove(ext_idx_file_name.c_str());
@@ -129,7 +129,7 @@ void delete_index_files(const char* file_name, const char* output_dir, size_type
 
 
 template<class tIndex>
-void benchmark(const char* file_name, size_type b, size_type sa_dens, const char* pattern_file_name, const char* tmp_file_dir, const char* output_dir,
+void benchmark(const char* file_name, size_type b, size_type fac_dens, const char* pattern_file_name, const char* tmp_file_dir, const char* output_dir,
                bool repeated_in_memory_search=false,
                bool only_in_memory=false, bool only_external_memory=false
               )
@@ -140,11 +140,11 @@ void benchmark(const char* file_name, size_type b, size_type sa_dens, const char
     stop_watch sw;
     {
         tIndex index;
-        generate_index(index, file_name, b, sa_dens, false, false, tmp_file_dir, output_dir);
+        generate_index(index, file_name, b, fac_dens, false, false, tmp_file_dir, output_dir);
     }
 
     tIndex index;
-    string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, sa_dens, output_dir);
+    string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, fac_dens, output_dir);
     std::cerr << "load index from file " << int_idx_file_name << std::endl;
     sw.start();
     util::load_from_file(index, int_idx_file_name.c_str());
@@ -250,7 +250,7 @@ void display_usage(char* command)
     cout << "  " << command << " --input_file=[input_file] "<< endl;
     cout << " input_file       : file name of the input text" << endl;
     cout << " threshold        : block size threshold b; default=4096" << endl;
-	cout << " sa_dens          : sampling parameter for the SA; default=1 " << endl;
+	cout << " fac_dens         : sampling parameter for the factors; default=1 " << endl;
     cout << " generate_index   : generates the index" << endl;
     cout << " generate_patterns: generate a pattern file; default=OFF" << endl;	
     cout << " pattern_len      : length of each generated pattern; default=20" << endl;
@@ -287,7 +287,7 @@ int main(int argc, char* argv[])
     std::string output_dir = "./";
 
     size_type b = 4096;
-	size_type sa_dens = 1;
+	size_type fac_dens = 1;
     size_type plen = 20;
     size_type pno  = 100;
     size_type swapno  = 0;
@@ -316,7 +316,7 @@ int main(int argc, char* argv[])
         static struct option long_options[] = {
             {"input_file", required_argument, 0, 'i'},
             {"threshold",  required_argument, 0, 'b'},
-            {"sa_dens",  required_argument, 0, 'd'},
+            {"fac_dens",  required_argument, 0, 'd'},
             {"tmp_file_dir", required_argument, 0, 't'},
             {"output_dir", required_argument, 0, 'o'},
             {"pattern_file", required_argument, 0, 'q'},
@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
                 if (long_options[option_index].flag != 0)
                     break;
 			case 'd':
-				sa_dens = atoll(optarg);
+				fac_dens = atoll(optarg);
 				break;			
             case 'i':
                 input_file_name = string(optarg);
@@ -405,8 +405,8 @@ int main(int argc, char* argv[])
 
     if (do_generate_index) {
         tIDX index;
-        generate_index(index, input_file_name.c_str(), b, sa_dens, false, delete_tmp_file, tmp_file_dir.c_str(), output_dir.c_str());
-        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, sa_dens, output_dir.c_str());
+        generate_index(index, input_file_name.c_str(), b, fac_dens, false, delete_tmp_file, tmp_file_dir.c_str(), output_dir.c_str());
+        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, fac_dens, output_dir.c_str());
         std::cerr << "load index from file " << int_idx_file_name << std::endl;
         util::load_from_file(index, int_idx_file_name.c_str());
         return 0;
@@ -414,7 +414,7 @@ int main(int argc, char* argv[])
 
     if (interactive) {
         tIDX index;
-        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, sa_dens, output_dir.c_str());
+        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, fac_dens, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
             std::cout<<"Entering interactive mode. Please enter patterns or Ctrl-D to exit."<<std::endl;
             std::string s;
@@ -444,13 +444,13 @@ int main(int argc, char* argv[])
     }
 
     if (delete_index_file) {
-        delete_index_files<tIDX>(input_file_name.c_str(), output_dir.c_str(), b, sa_dens);
+        delete_index_files<tIDX>(input_file_name.c_str(), output_dir.c_str(), b, fac_dens);
         return 0;
     }
 
     if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq or output_tikz) {
         tIDX index;
-        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, sa_dens, output_dir.c_str());
+        string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, fac_dens, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
             index.set_file_name(input_file_name);
             index.set_output_dir(output_dir);
@@ -460,7 +460,7 @@ int main(int argc, char* argv[])
                 index.statistics();
             } else if (greedy) {
 				bit_vector factor_borders;
-                size_type factors = index.greedy_parse(tmp_file_dir, factor_borders);
+                size_type factors = index.greedy_parse(tmp_file_dir, factor_borders, fac_dens);
                 std::cout << "factors = "<<factors << std::endl;
                 std::cout << "avg factor length = "<<((double)index.size())/factors<< std::endl;
 				std::cout << "k="<< index.k-1 << std::endl;
@@ -526,7 +526,7 @@ int main(int argc, char* argv[])
         }
         std::cerr << "run benchmark" << std::endl;
         std::cerr << "pattern_file_name " << pattern_file_name << std::endl;
-        benchmark<tIDX>(input_file_name.c_str(), b, sa_dens, pattern_file_name.c_str(), tmp_file_dir.c_str(),
+        benchmark<tIDX>(input_file_name.c_str(), b, fac_dens, pattern_file_name.c_str(), tmp_file_dir.c_str(),
                         output_dir.c_str(), repeated_in_memory_search,
                         run_benchmark_int, run_benchmark_ext);
     }

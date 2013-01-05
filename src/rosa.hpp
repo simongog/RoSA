@@ -119,7 +119,7 @@ class rosa {
         int_vector<>			m_pointer; // address of block [sp..ep] on disk,
         // if ep-sp > 0 or SA[sp] if sp=ep.
 
-		size_type				m_sa_dens; // every `m_sa_dens`-th suffix is an entry point to the text
+		size_type				m_fac_dens; // every `m_fac_dens`-th factor is an entry point to the text
 
         string					m_file_name;  // file name of the supported text
         string					m_output_dir; // output directory
@@ -238,8 +238,7 @@ class rosa {
 					for (size_type i=0; i<m_sa.size(); ++i){
 						m_sa[i] = factor_borders_rank(m_sa[i]);
 					}
-					// TODO: use bit_compress and adjust pointers of in-memory structure
-					// util::bit_compress(m_sa);
+					util::bit_compress(m_sa);
 				}
 
                 template<class rac>
@@ -409,7 +408,7 @@ class rosa {
         const string& output_dir;				//!< Directory where the output is stored.
 		const size_type& k;						//!< Number of block prefixes.
 		const uint8_t& lz_width;				//!< Bit-width of the LZ factors
-		const size_type sa_dens;				//!< Sample density of the suffixes
+		const size_type fac_dens;				//!< Sample density of the suffixes
 #ifdef OUTPUT_STATS
         const size_type& count_disk_access; 	//!< Counter for potential disk accesses.
         const size_type& count_gap_disk_access; //!< Counter for potential disk accesses caused by gaps in the fringe.
@@ -428,19 +427,19 @@ class rosa {
         }
 
         //! Get the name of the file where the external part of the index is stored.
-        static string get_ext_idx_filename(const char* file_name, size_type b, size_type sa_dens, const char* output_dir=NULL) {
+        static string get_ext_idx_filename(const char* file_name, size_type b, size_type fac_dens, const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + "." + util::to_string(sa_dens) +".2." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
+                   + "." + util::to_string(b) + "." + util::to_string(fac_dens) +".2." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
         }
 
         //! Get the name of the file where the external part of the index is stored.
         string get_ext_idx_filename() {
-            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_sa_dens, m_output_dir.c_str());
+            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_fac_dens, m_output_dir.c_str());
         }
 
         //! Get the name of the file where the external part of the index is stored.
         string get_tmp_ext_idx_filename() {
-            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_sa_dens, m_output_dir.c_str())+".tmp";
+            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_fac_dens, m_output_dir.c_str())+".tmp";
 		}
         
 
@@ -452,14 +451,14 @@ class rosa {
 
 
         //! Get the name of the file where the in-memory part of the index is stored.
-        static string get_int_idx_filename(const char* file_name, size_type b, size_type sa_dens, const char* output_dir=NULL) {
+        static string get_int_idx_filename(const char* file_name, size_type b, size_type fac_dens, const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + "." + util::to_string(sa_dens)  + ".2." + SDSL_XSTR(LCP_WRAP) + "." +INDEX_SUF+".int_idx";
+                   + "." + util::to_string(b) + "." + util::to_string(fac_dens)  + ".2." + SDSL_XSTR(LCP_WRAP) + "." +INDEX_SUF+".int_idx";
         }
 
         //! Get the name of the file where the in-memory part of the index is stored.
         string get_int_idx_filename() {
-            return get_int_idx_filename(m_file_name.c_str(), m_b, m_sa_dens, m_output_dir.c_str());
+            return get_int_idx_filename(m_file_name.c_str(), m_b, m_fac_dens, m_output_dir.c_str());
         }
 
         //! Remove the temporary files which are created during the construction.
@@ -887,8 +886,8 @@ class rosa {
          *	\Time complexity
          *		\f$ \Order{n \log\sigma} \f$, where n is the length of the text.
          */
-        rosa(const char* file_name=NULL, size_type b=4096, size_type f_sa_dens=1, bool output_tikz=false, bool delete_tmp=false,
-             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_lz(NULL), m_buf_size(1024), m_sa_dens(f_sa_dens)
+        rosa(const char* file_name=NULL, size_type b=4096, size_type f_fac_dens=1, bool output_tikz=false, bool delete_tmp=false,
+             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_lz(NULL), m_buf_size(1024), m_fac_dens(f_fac_dens)
             ,bl(m_bl), bf(m_bf), wt(m_wt)
             ,bl_rank(m_bl_rank), bf_rank(m_bf_rank)
             ,bf_select(m_bf_select)
@@ -902,7 +901,7 @@ class rosa {
             ,output_dir(m_output_dir)
 			,k(m_k)						 
 			,lz_width(m_lz_width)
-			,sa_dens(m_sa_dens)
+			,fac_dens(m_fac_dens)
 #ifdef OUTPUT_STATS
             ,count_disk_access(m_count_disk_access)
             ,count_gap_disk_access(m_count_gap_disk_access)
@@ -913,7 +912,7 @@ class rosa {
 #endif
         {
             m_buf = new unsigned char[m_buf_size]; // initialise buffer for pattern
-            m_buf_lz = new uint64_t[m_buf_size]; // initialise buffer for pattern
+            m_buf_lz = new uint64_t[m_buf_size+(m_fac_dens-1)]; // initialise buffer for pattern
             if (NULL == file_name) {
                 return; // if no file_name is specified do not construct the index
             }
@@ -1036,7 +1035,7 @@ class rosa {
 //			(13) greedy parse the text
 			bit_vector factor_borders;
             write_R_output("parse","construct","begin");
-			greedy_parse(tmp_dir, factor_borders);
+			greedy_parse(tmp_dir, factor_borders, fac_dens);
             write_R_output("parse","construct","end");
 //			(14) Replace SA text pointers by SA LZ-text pointers
             write_R_output("ext_idx","replace_pointers","begin");
@@ -1110,19 +1109,28 @@ class rosa {
             std::streampos end = tmp_ext_idx.tellg(); // get the end position
             seekg(tmp_ext_idx, 0, false); // load the first block
 			ofstream ext_idx(get_ext_idx_filename().c_str());
+			map<uint64_t, uint64_t> old_pointer_to_new; // maps the old pointers to the new ones
+			uint64_t p_old = 0, p_new = 0;
             // iterate through all blocks
+			sdsl::util::nullstream ns;
             while (tmp_ext_idx.tellg() < end) {
+				old_pointer_to_new[p_old] = p_new;
                 disk_block db;
                 db.load(tmp_ext_idx); // load block
+//				p_old += (uint64_t)util::get_size_in_bytes(db);  // this does not work???
+				p_old += db.serialize(ns);
 				db.replace_pointers(factor_borders_rank);
-				db.serialize(ext_idx);
+				p_new += db.serialize(ext_idx);
 			}
 			ext_idx.close();
 			std::remove(get_tmp_ext_idx_filename().c_str());
 
+
 			for (size_type i=0; i<m_k; ++i){
 				if ( is_singleton[i] ) {
 					m_pointer[i] = factor_borders_rank(m_pointer[i]);
+				}else{
+					m_pointer[i] = old_pointer_to_new[m_pointer[i]];
 				}
 			}
 		}
@@ -1177,7 +1185,7 @@ class rosa {
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (match_pattern_lz(pattern, m, sa)) {
+                        if (match_pattern_lz(pattern, m, m_fac_dens*sa)) {
                             res.push_back(sa);
                             return 1;
                         }
@@ -1236,7 +1244,7 @@ class rosa {
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (match_pattern_lz(pattern, m, sa))
+                        if (match_pattern_lz(pattern, m, m_fac_dens*sa))
                             return 1;
                     } else {
                         size_type block_addr = m_pointer[bwd_id];
@@ -1404,7 +1412,7 @@ class rosa {
 		 * \par Working set size
 		 *      Constant size buffer for the text + constant size buffer for the output + n bits for factor borders 
 		 */
-        size_type greedy_parse(string tmp_dir, bit_vector &factor_borders) {
+        size_type greedy_parse(string tmp_dir, bit_vector &factor_borders, size_type fac_dens) {
             if (m_b >= m_n) {
                 throw std::logic_error("greedy_parse: m_b="+util::to_string(m_b)+" >= "+util::to_string(m_b)+"=m_n");
             }
@@ -1421,6 +1429,7 @@ class rosa {
 				size_type factors = 0;
 				size_type lb = 0, rb=m_n-1, d=0;
 
+				size_type dont_sample_it = fac_dens;
 				for (size_type i=0,r=0,r_sum=0; i < text_buf.int_vector_size;) { 
 					for (; i < r+r_sum; ++i) {
 						size_type lb1 = m_bl_rank(lb);
@@ -1434,8 +1443,12 @@ class rosa {
 							++d; // we have matched another character
 							lb = m_bf_select(m_cC[m_char2comp[c]] + lb2 + 1);
 							rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
-							if (rb-lb+1 <= m_b) { // reached 
-								factor_borders[i] = 1;
+							if (rb-lb+1 <= m_b) { // reached
+								--dont_sample_it;
+								if ( !dont_sample_it ){
+									factor_borders[i] = 1;
+									dont_sample_it = fac_dens;
+								}
 								size_type bwd_id = get_bwd_id(lb, d);
 								assert(bwd_id < m_k);
 								write_factor(bwd_id, factor_stream, num_bytes);
@@ -1543,7 +1556,7 @@ class rosa {
                 lb = delta_x;
                 rb = delta_x + res_block[i].size - 1;
                 for (size_type j=lb; j <= rb; ++j) {
-                    loc[loc_idx++] = db.sa[j];
+                    loc[loc_idx++] = m_fac_dens*db.sa[j];
                 }
             }
             if (util::verbose) {
@@ -1771,10 +1784,10 @@ class rosa {
 #if defined BENCHMARK_LOAD_ONLY || defined BENCHMARK_CREATE_ONLY || defined BENCHMARK_SEARCH_BLOCK_ONLY
             return size;
 #endif
-            if (size > 0 and match_pattern_lz(pattern-depth, m+depth, db.sa[lb])) {
+            if (size > 0 and match_pattern_lz(pattern-depth, m+depth, m_fac_dens*db.sa[lb])) {
                 if (NULL != loc) {
                     for (size_type i=lb; i<=rb; ++i) {
-                        loc->push_back(db.sa[i]);
+                        loc->push_back(m_fac_dens*db.sa[i]);
                     }
                 }
                 return size; // return the interval size
@@ -1853,8 +1866,8 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
 			calculate_kmp_table(pattern, m, kmp_table);
 //TODO: handle the case where we load multiple blocks form disk				
-			size_type len = ((m_lz_width*(lz_offset+m)-1)/64)-((m_lz_width*lz_offset)/64)+1; // len in 64 bit words
-			len = std::min(len, m_buf_size);
+			size_type len = ((m_lz_width*(lz_offset+m+(m_fac_dens-1))-1)/64)-((m_lz_width*lz_offset)/64)+1; // len in 64 bit words
+			len = std::min(len, m_buf_size+(m_fac_dens-1));
 			
 			size_type cur_end_word = (m_lz_width*lz_offset)/64+len;
 			size_type the_end_word = (m_lz_width*m_lz_size+63)/64;
@@ -1954,7 +1967,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             written_bytes += m_pointer.serialize(out, child, "pointer");
             written_bytes += util::write_member(m_file_name, out, child, "file_name");
             written_bytes += util::write_member(m_output_dir, out, child, "output_dir");
-			written_bytes += util::write_member(m_sa_dens, out, child, "sa_dens");
+			written_bytes += util::write_member(m_fac_dens, out, child, "fac_dens");
             structure_tree::add_size(child, written_bytes);
             return written_bytes;
         }
@@ -1984,7 +1997,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             m_pointer.load(in);
             util::read_member(m_file_name, in);
             util::read_member(m_output_dir, in);
-			util::read_member(m_sa_dens, in);
+			util::read_member(m_fac_dens, in);
             open_streams();
         }
 
