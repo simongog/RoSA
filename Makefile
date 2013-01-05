@@ -9,7 +9,8 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_helping_functions.o \
 	 ${BIN_DIR}/bu_interval.o \
 	 ${BIN_DIR}/pattern_file.o \
-	 ${BIN_DIR}/rosa_sd2_delta 
+	 ${BIN_DIR}/rosa_sd2_delta \
+	 ${BIN_DIR}/create_pattern_files
 #	 ${BIN_DIR}/rosa_sd2\ 
 #	 ${BIN_DIR}/rosa_sd_load_only\
 #	 ${BIN_DIR}/rosa_sd_create_only\
@@ -22,6 +23,12 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 #	 ${BIN_DIR}/fm_huff_rrr \
 #	 ${BIN_DIR}/fm_huff_rrr127 \
 #	 ${BIN_DIR}/fm_rlmn
+
+ ${BIN_DIR}/create_pattern_files: ${SRC_DIR}/create_pattern_files.cpp ${BIN_DIR}/bu_interval.o
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} \
+	    ${SRC_DIR}/create_pattern_files.cpp -o ${BIN_DIR}/create_pattern_files \
+		${BIN_DIR}/bu_interval.o \
+		-lsdsl -ldivsufsort -ldivsufsort64
 
 ${BIN_DIR}/rosa_helping_structures.o:
 	g++ ${CFLAGS} -I${INCLUDE_PATH} -c ${SRC_DIR}/rosa_helping_structures.cpp -o ${BIN_DIR}/rosa_helping_structures.o
