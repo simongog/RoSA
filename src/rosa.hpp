@@ -936,11 +936,14 @@ class rosa {
 			{
 				ifstream lcp_in(lcp_file.c_str());
 				if (!lcp_in){ // if the lcp file does not exist: construct it
+					util::clear(fwd_csa);
 					int_vector<> lcp;
 					config.file_map[constants::KEY_SA] = sa_file;
 					config.file_map[constants::KEY_TEXT] = util::cache_file_name(constants::KEY_TEXT, config);
 					construct_lcp_kasai(lcp, config );
 					util::store_to_file(lcp, lcp_file.c_str());
+					util::clear(lcp);
+            		construct_or_load_fwd_csa(fwd_csa, fwd_csa_file_name, tmp_dir, delete_tmp);
 				}
 			}
 			write_R_output("lcp","construct","end");
