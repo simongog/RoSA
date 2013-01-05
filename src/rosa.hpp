@@ -119,6 +119,8 @@ class rosa {
         int_vector<>			m_pointer; // address of block [sp..ep] on disk,
         // if ep-sp > 0 or SA[sp] if sp=ep.
 
+		size_type				m_sa_dens; // every `m_sa_dens`-th suffix is an entry point to the text
+
         string					m_file_name;  // file name of the supported text
         string					m_output_dir; // output directory
 
@@ -407,6 +409,7 @@ class rosa {
         const string& output_dir;				//!< Directory where the output is stored.
 		const size_type& k;						//!< Number of block prefixes.
 		const uint8_t& lz_width;				//!< Bit-width of the LZ factors
+		const size_type sa_dens;				//!< Sample density of the suffixes
 #ifdef OUTPUT_STATS
         const size_type& count_disk_access; 	//!< Counter for potential disk accesses.
         const size_type& count_gap_disk_access; //!< Counter for potential disk accesses caused by gaps in the fringe.
@@ -425,19 +428,19 @@ class rosa {
         }
 
         //! Get the name of the file where the external part of the index is stored.
-        static string get_ext_idx_filename(const char* file_name, size_type b,  const char* output_dir=NULL) {
+        static string get_ext_idx_filename(const char* file_name, size_type b, size_type sa_dens, const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + ".2." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
+                   + "." + util::to_string(b) + "." + util::to_string(sa_dens) +".2." + SDSL_XSTR(LCP_WRAP)  + ".bt2.ext_idx";
         }
 
         //! Get the name of the file where the external part of the index is stored.
         string get_ext_idx_filename() {
-            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
+            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_sa_dens, m_output_dir.c_str());
         }
 
         //! Get the name of the file where the external part of the index is stored.
         string get_tmp_ext_idx_filename() {
-            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_output_dir.c_str())+".tmp";
+            return get_ext_idx_filename(m_file_name.c_str(), m_b, m_sa_dens, m_output_dir.c_str())+".tmp";
 		}
         
 
@@ -449,14 +452,14 @@ class rosa {
 
 
         //! Get the name of the file where the in-memory part of the index is stored.
-        static string get_int_idx_filename(const char* file_name, size_type b, const char* output_dir=NULL) {
+        static string get_int_idx_filename(const char* file_name, size_type b, size_type sa_dens, const char* output_dir=NULL) {
             return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
-                   + "." + util::to_string(b) + ".2." + SDSL_XSTR(LCP_WRAP) + "." +INDEX_SUF+".int_idx";
+                   + "." + util::to_string(b) + "." + util::to_string(sa_dens)  + ".2." + SDSL_XSTR(LCP_WRAP) + "." +INDEX_SUF+".int_idx";
         }
 
         //! Get the name of the file where the in-memory part of the index is stored.
         string get_int_idx_filename() {
-            return get_int_idx_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
+            return get_int_idx_filename(m_file_name.c_str(), m_b, m_sa_dens, m_output_dir.c_str());
         }
 
         //! Remove the temporary files which are created during the construction.
@@ -884,8 +887,8 @@ class rosa {
          *	\Time complexity
          *		\f$ \Order{n \log\sigma} \f$, where n is the length of the text.
          */
-        rosa(const char* file_name=NULL, size_type b=4096, bool output_tikz=false, bool delete_tmp=false,
-             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_lz(NULL), m_buf_size(1024)
+        rosa(const char* file_name=NULL, size_type b=4096, size_type f_sa_dens=1, bool output_tikz=false, bool delete_tmp=false,
+             const char* tmp_file_dir="./", const char* output_dir=NULL):m_b(b), m_buf(NULL), m_buf_lz(NULL), m_buf_size(1024), m_sa_dens(f_sa_dens)
             ,bl(m_bl), bf(m_bf), wt(m_wt)
             ,bl_rank(m_bl_rank), bf_rank(m_bf_rank)
             ,bf_select(m_bf_select)
@@ -899,6 +902,7 @@ class rosa {
             ,output_dir(m_output_dir)
 			,k(m_k)						 
 			,lz_width(m_lz_width)
+			,sa_dens(m_sa_dens)
 #ifdef OUTPUT_STATS
             ,count_disk_access(m_count_disk_access)
             ,count_gap_disk_access(m_count_gap_disk_access)
@@ -1950,6 +1954,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             written_bytes += m_pointer.serialize(out, child, "pointer");
             written_bytes += util::write_member(m_file_name, out, child, "file_name");
             written_bytes += util::write_member(m_output_dir, out, child, "output_dir");
+			written_bytes += util::write_member(m_sa_dens, out, child, "sa_dens");
             structure_tree::add_size(child, written_bytes);
             return written_bytes;
         }
@@ -1979,6 +1984,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             m_pointer.load(in);
             util::read_member(m_file_name, in);
             util::read_member(m_output_dir, in);
+			util::read_member(m_sa_dens, in);
             open_streams();
         }
 
