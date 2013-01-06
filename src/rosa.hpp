@@ -357,8 +357,11 @@ class rosa {
          *  before we open the new files.
          */
         void open_streams() {
-			open_stream(m_text, m_file_name.c_str());
-			open_stream(m_glz_text, get_factorization_filename().c_str());
+			if ( m_fac_dens == 0 ){
+				open_stream(m_text, m_file_name.c_str());
+			}else{
+				open_stream(m_glz_text, get_factorization_filename().c_str());
+			}
 			{
 				int_vector_file_buffer<> glz_buffer(get_factorization_filename().c_str());
 				m_lz_width = glz_buffer.int_width;
@@ -374,7 +377,7 @@ class rosa {
 	        close_stream_if_open(stream);
             stream.open(file_name);
             if (!stream) {
-                std::cerr << "Error: Could not open file: " << file_name << std::endl;
+                std::cerr << "Notice: Could not open file: " << file_name << std::endl;
             } else {
                 if (util::verbose) std::cerr << "Opened file " << file_name << "\n";
             }	
@@ -443,10 +446,15 @@ class rosa {
 		}
         
 
-        //! Get the name of the file where the external part of the index is stored.
+	    //! Get the name of the file where the factorization of the index is stored.
+        static string get_factorization_filename(const char* file_name, size_type b, const char* output_dir=NULL) {
+			return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
+			       +"."+ util::to_string(b)	+ ".2.glz";
+        }	
+
+        //! Get the name of the file where the factorization of the index is stored.
         string get_factorization_filename() {
-			return get_output_dir(m_file_name.c_str(), m_output_dir.c_str()) + "/" + util::basename(m_file_name.c_str())
-			       +"."+ util::to_string(m_b)	+ ".2.glz";
+			return get_factorization_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
         }
 
 
@@ -706,7 +714,11 @@ class rosa {
                                                 vector<vector<header_item> >& header_of_external_block) {
             size_type total_header_in_bytes = 0;
             size_type ext_idx_size_in_bytes = 0;
-            std::ofstream ext_idx_out(get_tmp_ext_idx_filename().c_str(), std::ios_base::trunc);
+			std::string ext_file_name = get_tmp_ext_idx_filename();
+			if ( fac_dens == 0 ){
+				ext_file_name = get_ext_idx_filename();
+			}
+            std::ofstream ext_idx_out(ext_file_name.c_str(), std::ios_base::trunc);
             if (ext_idx_out) {
 //TODO: test if the size of the output buffer chances the performance
                 select_support_mcl<> fwd_bf_select(&fwd_bf);
@@ -1032,69 +1044,79 @@ class rosa {
             construct_condensed_bwt(bwd_csa, tmp_dir);
             write_R_output("cBWT","construct","end");
             util::clear(bwd_csa);
+			if ( fac_dens > 0 ){
 //			(13) greedy parse the text
-			bit_vector factor_borders;
-            write_R_output("parse","construct","begin");
-			greedy_parse(tmp_dir, factor_borders, fac_dens);
-            write_R_output("parse","construct","end");
+				bit_vector factor_borders;
+				write_R_output("parse","construct","begin");
+				greedy_parse(tmp_dir, factor_borders, fac_dens);
+				write_R_output("parse","construct","end");
 //			(14) Replace SA text pointers by SA LZ-text pointers
-            write_R_output("ext_idx","replace_pointers","begin");
-			replace_pointers(factor_borders, is_singleton);
-            write_R_output("ext_idx","replace_pointers","end");
-			util::clear(factor_borders);
-			util::clear(is_singleton);
+				write_R_output("ext_idx","replace_pointers","begin");
+				replace_pointers(factor_borders, is_singleton);
+				write_R_output("ext_idx","replace_pointers","end");
+				util::clear(factor_borders);
+				util::clear(is_singleton);
+			}
 //          (15) Open stream to text and external index for the matching
             open_streams();
         }
 
 		//! Reconstruct text from the factorization and the condensed BWT
 		void reconstruct_text(const std::string delimiter=""){
-			string out_name = ("./"+util::basename(m_file_name)+".lz.txt");
-			ofstream text_out(out_name.c_str());
-			int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
-            for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
-                for (; i < r+r_sum; ++i) {
-					string factor_string;
-					assert(glz_buf[i-r_sum]<m_k);
-                   	extract_factor(glz_buf[i-r_sum],factor_string);
-					if ( i+1 == glz_buf.int_vector_size ){
-						factor_string = factor_string.substr(0, factor_string.size()-1);
+			if ( m_fac_dens > 0 ){
+				string out_name = ("./"+util::basename(m_file_name)+".lz.txt");
+				ofstream text_out(out_name.c_str());
+				int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
+				for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
+					for (; i < r+r_sum; ++i) {
+						string factor_string;
+						assert(glz_buf[i-r_sum]<m_k);
+						extract_factor(glz_buf[i-r_sum],factor_string);
+						if ( i+1 == glz_buf.int_vector_size ){
+							factor_string = factor_string.substr(0, factor_string.size()-1);
+						}
+						text_out.write(factor_string.c_str(), factor_string.size());
+						if ( delimiter.size() > 0 ){
+							text_out.write(delimiter.c_str(), delimiter.size());
+						}
 					}
-					text_out.write(factor_string.c_str(), factor_string.size());
-					if ( delimiter.size() > 0 ){
-						text_out.write(delimiter.c_str(), delimiter.size());
-					}
-                }
-                r_sum += r; r = glz_buf.load_next_block();
-            }
-			text_out.close();	
-			cout<<"The reconstructed text is stored in "<<out_name<<endl;
+					r_sum += r; r = glz_buf.load_next_block();
+				}
+				text_out.close();	
+				cout<<"The reconstructed text is stored in "<<out_name<<endl;
+			}else{
+				cout<<"No factorization is used, so we can not reconstruct the text"<<endl;
+			}
 		}
 
 		void factor_frequency(){
-			string out_name = ("./"+util::basename(m_file_name)+".occ_freq");
-			ofstream res_out(out_name.c_str());
-			std::vector<size_type> freq(m_k, 0);
-			size_type max_freq = 0;
-			int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
-            for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
-                for (; i < r+r_sum; ++i) {
-                   	++freq[glz_buf[i-r_sum]];
-					if ( freq[glz_buf[i-r_sum]] > max_freq ){
-						max_freq = freq[glz_buf[i-r_sum]];
+			if ( m_fac_dens > 0 ){
+				string out_name = ("./"+util::basename(m_file_name)+".occ_freq");
+				ofstream res_out(out_name.c_str());
+				std::vector<size_type> freq(m_k, 0);
+				size_type max_freq = 0;
+				int_vector_file_buffer<> glz_buf(get_factorization_filename().c_str());
+				for (size_type i=0,r=0,r_sum=0; i < glz_buf.int_vector_size;) { 
+					for (; i < r+r_sum; ++i) {
+						++freq[glz_buf[i-r_sum]];
+						if ( freq[glz_buf[i-r_sum]] > max_freq ){
+							max_freq = freq[glz_buf[i-r_sum]];
+						}
 					}
-                }
-                r_sum += r; r = glz_buf.load_next_block();
-            }
-			std::vector<size_type> occ_freq(max_freq+1, 0);
-		    for(size_type i=0; i<m_k; ++i){
-				++occ_freq[freq[i]];
+					r_sum += r; r = glz_buf.load_next_block();
+				}
+				std::vector<size_type> occ_freq(max_freq+1, 0);
+				for(size_type i=0; i<m_k; ++i){
+					++occ_freq[freq[i]];
+				}
+				res_out<<"frequency factor_nr"<<endl;
+				for(size_type i=0; i<occ_freq.size(); ++i){
+					res_out << i << " " << occ_freq[i] << std::endl;
+				}
+				res_out.close();
+			}else{
+				cout<<"Operation not supported in this index version."<<endl;	
 			}
-			res_out<<"frequency factor_nr"<<endl;
-			for(size_type i=0; i<occ_freq.size(); ++i){
-				res_out << i << " " << occ_freq[i] << std::endl;
-			}
-			res_out.close();
 		}
 
 		/*!  
@@ -1185,10 +1207,13 @@ class rosa {
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (match_pattern_lz(pattern, m, m_fac_dens*sa)) {
+                        if ( m_fac_dens > 0 and match_pattern_lz(pattern, m, m_fac_dens*sa) ) {
                             res.push_back(sa);
                             return 1;
-                        }
+                        }else if( 0 == m_fac_dens and match_pattern(pattern+d, m-d, sa+d) ){
+							res.push_back(sa);
+							return 1;
+						}
                     } else {
                         size_type block_addr = m_pointer[bwd_id];
                         return search_block(pattern+d, m-d, d, rb+1-lb, bwd_id, block_addr, &res);
@@ -1244,8 +1269,9 @@ class rosa {
                     size_type bwd_id = get_bwd_id(lb, d);
                     if (rb+1-lb == 1) {
                         size_type sa = m_pointer[bwd_id];
-                        if (match_pattern_lz(pattern, m, m_fac_dens*sa))
-                            return 1;
+						if (     ( m_fac_dens  > 0 and match_pattern_lz(pattern, m, m_fac_dens*sa) )
+							 or  ( 0 == m_fac_dens and match_pattern(pattern+d, m-d, sa+d) ) )
+                            	return 1;
                     } else {
                         size_type block_addr = m_pointer[bwd_id];
                         return search_block(pattern+d, m-d, d, rb+1-lb, bwd_id, block_addr);
@@ -1784,11 +1810,20 @@ class rosa {
 #if defined BENCHMARK_LOAD_ONLY || defined BENCHMARK_CREATE_ONLY || defined BENCHMARK_SEARCH_BLOCK_ONLY
             return size;
 #endif
-            if (size > 0 and match_pattern_lz(pattern-depth, m+depth, m_fac_dens*db.sa[lb])) {
+            if ( size > 0  and 
+				(    ( m_fac_dens  > 0 and match_pattern_lz(pattern-depth, m+depth, m_fac_dens*db.sa[lb] ) )
+				  or ( 0 == m_fac_dens and match_pattern(pattern, m, db.sa[lb] + depth + delta_d) )  )
+			   ){
                 if (NULL != loc) {
-                    for (size_type i=lb; i<=rb; ++i) {
-                        loc->push_back(m_fac_dens*db.sa[i]);
-                    }
+					if ( m_fac_dens > 0 ){
+						for (size_type i=lb; i<=rb; ++i) {
+							loc->push_back(m_fac_dens*db.sa[i]);
+						}
+					} else {
+						for (size_type i=lb; i<=rb; ++i) {
+							loc->push_back(db.sa[i]);
+						}				
+					}
                 }
                 return size; // return the interval size
             } else {
@@ -1880,7 +1915,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 			
 			/// TODO take care about failbit!!!
 
-//			cout<<"m_glz_text.fail()="<<m_glz_text.fail()<<endl;
+			if( util::verbose ) cout<<"XXX m_glz_text.fail()="<<m_glz_text.fail()<<endl;
 			m_glz_text.read((char*)m_buf_lz, 8*len);
 				
 			uint8_t bit_offset = lz_bit_offset&0x3F;

@@ -93,16 +93,22 @@ void generate_index(tIndex& idx, const char* file_name, size_type b, size_type f
 
     string int_idx_file_name = tIndex::get_int_idx_filename(file_name, b, fac_dens, output_dir);
     string ext_idx_file_name = tIndex::get_ext_idx_filename(file_name, b, fac_dens, output_dir);
+	string factorization_file_name  = tIndex::get_factorization_filename(file_name, b, output_dir);
 
     ifstream int_idx_stream(int_idx_file_name.c_str());
     ifstream ext_idx_stream(ext_idx_file_name.c_str());
-    if (!int_idx_stream or !ext_idx_stream) {
+	ifstream factor_stream(factorization_file_name.c_str());
+
+    if (!int_idx_stream or !ext_idx_stream or (fac_dens>0 and !factor_stream) ) {
         if (!int_idx_stream) {
             cerr << "internal index is not stored in " << int_idx_file_name << endl;
         }
         if (!ext_idx_stream) {
             cerr << "external index is not stored in " << ext_idx_file_name << endl;
         }
+		if (fac_dens > 0 and !factor_stream ){
+			cerr << "factorization is not stored in "<< factorization_file_name << endl;
+		}
         tIndex index(file_name, b, fac_dens, output_tikz, delete_tmp, tmp_file_dir, output_dir);
         util::store_to_file(index, int_idx_file_name.c_str());
     } else {
@@ -250,7 +256,7 @@ void display_usage(char* command)
     cout << "  " << command << " --input_file=[input_file] "<< endl;
     cout << " input_file       : file name of the input text" << endl;
     cout << " threshold        : block size threshold b; default=4096" << endl;
-	cout << " fac_dens         : sampling parameter for the factors; default=1 " << endl;
+	cout << " fac_dens         : sampling parameter for the factors; default=1; 0=don't use factorization" << endl;
     cout << " generate_index   : generates the index" << endl;
     cout << " generate_patterns: generate a pattern file; default=OFF" << endl;	
     cout << " pattern_len      : length of each generated pattern; default=20" << endl;
