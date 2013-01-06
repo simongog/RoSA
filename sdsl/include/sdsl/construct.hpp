@@ -144,6 +144,7 @@ void construct(Index& idx, const char* file, cache_config& config, uint8_t num_b
 	int_vector<8> text;
 	{// (1) check, if the text is cached
 		if ( !util::load_from_cache(text, constants::KEY_TEXT, config) ){
+			if ( util::verbose ){ std::cout<<"No text found at "<<util::cache_file_name(constants::KEY_TEXT, config)<<std::endl; }
 			util::load_vector_from_file(text, file, num_bytes);
 			if ( contains_no_zero_symbol(text, file) ){
 				append_zero_symbol(text);
@@ -155,6 +156,7 @@ void construct(Index& idx, const char* file, cache_config& config, uint8_t num_b
 	{// (2) check, if the suffix array is cached 
 		int_vector<> sa; 
 		if ( !util::load_from_cache(sa, constants::KEY_SA, config) ){
+			if ( util::verbose ){ std::cout<<"No SA found at "<<util::cache_file_name(constants::KEY_SA, config)<<std::endl; }
 			// call divsufsort
 			util::assign(sa, int_vector<>(text.size(), 0, bit_magic::l1BP(text.size())+1));
 			algorithm::calculate_sa((const unsigned char*)text.data(), text.size(), sa);
@@ -165,6 +167,7 @@ void construct(Index& idx, const char* file, cache_config& config, uint8_t num_b
 	{//  (3) construct BWT
 		int_vector<8> bwt;
 		if ( !util::load_from_cache(bwt, constants::KEY_BWT, config) ){
+			if ( util::verbose ){ std::cout<<"No BWT found at "<<util::cache_file_name(constants::KEY_BWT, config)<<std::endl; }
 			construct_bwt(bwt, config);
 			util::store_to_cache(bwt, constants::KEY_BWT, config);
 		}
