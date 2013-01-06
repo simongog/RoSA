@@ -59,7 +59,7 @@ int main(int argc, char *argv[]){
 	len.push_back(4);
 	len.push_back(10);
 	len.push_back(20);
-	len.push_back(50);
+	len.push_back(40);
 	len.push_back(100);
 	tVI occ1, occ2;
 	occ1.push_back(1); occ2.push_back(1);
