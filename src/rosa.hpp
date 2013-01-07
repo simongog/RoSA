@@ -436,12 +436,12 @@ class rosa {
         }
 
         //! Get the name of the file where the external part of the index is stored.
-        string get_ext_idx_filename() {
+        string get_ext_idx_filename() const {
             return get_ext_idx_filename(m_file_name.c_str(), m_b, m_fac_dens, m_output_dir.c_str());
         }
 
         //! Get the name of the file where the external part of the index is stored.
-        string get_tmp_ext_idx_filename() {
+        string get_tmp_ext_idx_filename() const {
             return get_ext_idx_filename(m_file_name.c_str(), m_b, m_fac_dens, m_output_dir.c_str())+".tmp";
 		}
         
@@ -453,7 +453,7 @@ class rosa {
         }	
 
         //! Get the name of the file where the factorization of the index is stored.
-        string get_factorization_filename() {
+        string get_factorization_filename() const {
 			return get_factorization_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
         }
 
@@ -464,7 +464,7 @@ class rosa {
 		}
         
         //! Get the name of the file where the factorization of the index is stored.
-        string get_factor_border_filename() {
+        string get_factor_border_filename() const {
 			return get_factor_border_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
         }
 
@@ -2100,6 +2100,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             double header_in_megabyte = 0.0;
             double lcp_in_megabyte    = 0.0;
             double sa_in_megabyte     = 0.0;
+			double bp_ct_in_megabyte  = 0.0;
 
             size_type max_bwd_id = 0;
             size_type max_delta_x = 0;
@@ -2122,6 +2123,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
                 header_in_megabyte += util::get_size_in_mega_bytes(db.header);
                 lcp_in_megabyte += util::get_size_in_mega_bytes(LcpSerializeWrapper(db.lcp));
                 sa_in_megabyte += util::get_size_in_mega_bytes(db.sa);
+				bp_ct_in_megabyte += util::get_size_in_mega_bytes(db.bp_ct);
 
 
                 for (size_type i=0; i<db.header.size(); ++i) {
@@ -2140,6 +2142,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             std::cout << "# sigma = " << (int)m_wt.sigma << std::endl;
             std::cout << "# n = " << m_n << std::endl;
             std::cout << "# b = " << m_b << std::endl;
+			std::cout << "# fac_dens = " << m_fac_dens <<std::endl;
             std::cout << "# k = " << m_k << std::endl;
             std::cout << "# k_ir = " << k_ir << std::endl;
             std::cout << "# k_re = " << k_re << std::endl;
@@ -2154,7 +2157,15 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             std::cout << "# header_in_megabyte = " << header_in_megabyte << std::endl;
             std::cout << "# lcp_in_megabyte = " << lcp_in_megabyte << std::endl;
             std::cout << "# sa_in_megabyte = " << sa_in_megabyte << std::endl;
+			std::cout << "# bp_ct_in_megabyte = " << bp_ct_in_megabyte << std::endl;
             std::cout << "# label_in_megabyte = " << 0 << std::endl;
+			std::cout << "# compact_text_in_megabyte = ";
+			if ( m_fac_dens == 0 ){
+				std::cout << util::get_file_size(m_file_name.c_str())/(1024.0*1024);
+			}else{
+				std::cout << util::get_file_size( get_factorization_filename().c_str() )/(1024.0*1024.0);
+			}
+			std::cout << std::endl;
         }
 
 };
