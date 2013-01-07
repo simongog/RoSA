@@ -836,6 +836,12 @@ class rosa {
         }
 
 		void output_tikz(){
+			cst_sct3<> cst;
+			construct(cst, file_name.c_str(), 1);
+			bit_vector bf;
+			size_type blocks=0;
+			mark_blocks(cst, bf, m_b, blocks);
+			rank_support_v<> bf_rank(&bf);
             string base_name = util::basename(file_name)+"."+util::to_string(m_b);
             string bwd_csa_file_name = base_name + ".tikz." + TMP_BWD_CSA_SUFFIX;
 			ofstream bwd_out((base_name+".bwd_idx.tex").c_str());
@@ -844,7 +850,7 @@ class rosa {
 			std::vector<bwd_block_info> fwd_blocks_in_bwd;
 			size_type max_bwd_id = m_k;
 			for (size_type bwd_id=0; bwd_id<max_bwd_id; ++bwd_id){
-				fwd_blocks_in_bwd.push_back(bwd_id_to_info(bwd_id));
+				fwd_blocks_in_bwd.push_back(bwd_id_to_info(bwd_id, bf_rank, cst));
 			}
 			write_tikz_output_bwd(bwd_out, bwd_csa, m_bf, m_bl, m_bm, m_b, fwd_blocks_in_bwd, m_min_depth);
 
@@ -1376,8 +1382,8 @@ class rosa {
             }while(true);
         }
 		
-		bwd_block_info bwd_id_to_info(size_type bwd_id){
-	            size_type zero_pos	= m_bm_0_select(bwd_id+1);
+		bwd_block_info bwd_id_to_info(size_type bwd_id, const rank_support_v<> &bf_rank, const cst_sct3<> &cst){
+	        size_type zero_pos	= m_bm_0_select(bwd_id+1);
             size_type ones 		= zero_pos - bwd_id; // ones in bm[0..zero_pos)
             size_type depth_idx = m_bm_10_rank(zero_pos+1);
             size_type depth		= m_min_depth[depth_idx];
@@ -1396,14 +1402,19 @@ class rosa {
                 size_type cpos   = m_wt.select(c_rank, c);
                 _lb = m_bl_select(cpos+1);
             }
+			std::string str(factor.size(), ' ');
+			size_t str_idx=0;
             size_type rb = m_n-1;
             while (!factor.empty()) {
                 size_type rb1 = m_bl_rank(rb+1);
                 c = factor.top(); factor.pop();
+				str[str_idx++] = c;
                 size_type rb2 = m_wt.rank(rb1, c);
                 rb = m_bf_select(m_cC[m_char2comp[c]] + rb2 + 1) - 1;
             }
-			return bwd_block_info(lb, rb+1, depth, bwd_id);
+			size_type fwd_lb=0, fwd_rb=0; 
+			algorithm::backward_search(cst.csa, (size_type)0, cst.csa.size()-1, (const unsigned char*)str.c_str(), str.size(), fwd_lb, fwd_rb); 
+			return bwd_block_info(lb, rb+1, depth, bf_rank(fwd_lb));
 		}
 
         unsigned char first_row_character(size_type i)const {
