@@ -457,6 +457,18 @@ class rosa {
 			return get_factorization_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
         }
 
+	    //! Get the name of the file where the factorization of the index is stored.
+        static string get_factor_border_filename(const char* file_name, size_type b, const char* output_dir=NULL) {
+			return get_output_dir(file_name, output_dir) + "/" + util::basename(file_name)
+			       +"."+ util::to_string(b)	+ ".2.factor_border";
+		}
+        
+        //! Get the name of the file where the factorization of the index is stored.
+        string get_factor_border_filename() {
+			return get_factor_border_filename(m_file_name.c_str(), m_b, m_output_dir.c_str());
+        }
+
+
 
         //! Get the name of the file where the in-memory part of the index is stored.
         static string get_int_idx_filename(const char* file_name, size_type b, size_type fac_dens, const char* output_dir=NULL) {
@@ -1442,6 +1454,33 @@ class rosa {
             if (m_b >= m_n) {
                 throw std::logic_error("greedy_parse: m_b="+util::to_string(m_b)+" >= "+util::to_string(m_b)+"=m_n");
             }
+			
+			ifstream factor_border_stream(get_factor_border_filename().c_str());
+			if ( factor_border_stream ){
+				factor_border_stream.close();
+				ifstream test_factor_stream(get_factorization_filename().c_str() );
+				if ( test_factor_stream ){
+					test_factor_stream.close();
+					int_vector_file_buffer<> factor_file_buf(get_factorization_filename().c_str());
+					m_lz_width = factor_file_buf.int_width;
+					std::cout << "greedy_parse: factor width = "<<(int)m_lz_width << std::endl;
+					std::cout << "greedy_parse: factor border file exists; load it from "<<get_factor_border_filename()<<std::endl;
+					util::load_from_file(factor_borders, get_factor_border_filename().c_str());
+					size_type dont_sample_it = fac_dens;
+					for (size_type i=0; i<factor_borders.size(); ++i){
+						if ( factor_borders[i] ){
+							--dont_sample_it;
+							if ( !dont_sample_it ){
+								dont_sample_it = fac_dens;
+							}else{
+								factor_borders[i] = 0;
+							}
+						}
+					}
+					return util::get_one_bits(factor_borders);
+				}
+			}
+
             cache_config config(false, tmp_dir, util::basename(m_file_name));
             int_vector_file_buffer<8> text_buf(util::cache_file_name(constants::KEY_TEXT, config).c_str());
 			// file name for temporary 
@@ -1492,6 +1531,9 @@ class rosa {
 				util::bit_compress(factorization);
 				m_lz_width = factorization.get_int_width();
             	util::store_to_file(factorization, get_factorization_filename().c_str());
+				if ( fac_dens == 1 ){
+					util::store_to_file(factor_borders, get_factor_border_filename().c_str());
+				}
             	return factors;
 			}else{
 				throw std::logic_error(("Greedy parse: Could not open temporary file: "+factor_file).c_str());	
