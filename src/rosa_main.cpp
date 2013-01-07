@@ -140,9 +140,9 @@ void benchmark(const char* file_name, size_type b, size_type fac_dens, const cha
                bool only_in_memory=false, bool only_external_memory=false
               )
 {
-    std::cout << "# index_suf = " << INDEX_SUF << std::endl;
-    std::cout<< "# repeated_in_memory_search = " << repeated_in_memory_search << std::endl;
-    std::cout<< "# pattern_file_name = " << pattern_file_name << std::endl;
+    cout << "# index_suf = " << INDEX_SUF << std::endl;
+    cout<< "# repeated_in_memory_search = " << repeated_in_memory_search << std::endl;
+    cout<< "# pattern_file_name = " << pattern_file_name << std::endl;
     stop_watch sw;
     {
         tIndex index;
@@ -157,8 +157,9 @@ void benchmark(const char* file_name, size_type b, size_type fac_dens, const cha
     index.set_file_name(string(file_name));
     index.set_output_dir(string(output_dir));
     sw.stop();
-    std::cout << "# file_name = " << index.file_name << std::endl;
-    std::cout << "# b = " << b << std::endl;
+    cout << "# file_name = " << index.file_name << std::endl;
+    cout << "# b = " << b << endl;
+	cout << "# fac_dens = "<<fac_dens << endl;
     cout << "# index_load_rtime = " << sw.get_real_time() << endl;
     cout << "# index_load_utime = " << sw.get_user_time() << endl;
     if (!only_external_memory) {
