@@ -1,0 +1,229 @@
+lcp_file = tmp/lcp_web-4GB
+sa_file = tmp/sa_web-4GB
+text_file = web-4GB
+basename = web-4GB
+pattern_file=web-4GB.4.1000.0.1.1.pattern
+# pattern_len = 4
+# min_occ = 1
+# max_occ = 1
+# candidatess = 3406694
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.4.1000.0.8.12.pattern
+# pattern_len = 4
+# min_occ = 8
+# max_occ = 12
+# candidatess = 275015
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.4.1000.0.75.125.pattern
+# pattern_len = 4
+# min_occ = 75
+# max_occ = 125
+# candidatess = 111907
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.4.1000.0.750.1250.pattern
+# pattern_len = 4
+# min_occ = 750
+# max_occ = 1250
+# candidatess = 40809
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.4.1000.0.7500.12500.pattern
+# pattern_len = 4
+# min_occ = 7500
+# max_occ = 12500
+# candidatess = 9922
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.10.1000.0.1.1.pattern
+# pattern_len = 10
+# min_occ = 1
+# max_occ = 1
+# candidatess = 159937589
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.10.1000.0.8.12.pattern
+# pattern_len = 10
+# min_occ = 8
+# max_occ = 12
+# candidatess = 8282620
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.10.1000.0.75.125.pattern
+# pattern_len = 10
+# min_occ = 75
+# max_occ = 125
+# candidatess = 979116
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.10.1000.0.750.1250.pattern
+# pattern_len = 10
+# min_occ = 750
+# max_occ = 1250
+# candidatess = 95848
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.10.1000.0.7500.12500.pattern
+# pattern_len = 10
+# min_occ = 7500
+# max_occ = 12500
+# candidatess = 9060
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.20.1000.0.1.1.pattern
+# pattern_len = 20
+# min_occ = 1
+# max_occ = 1
+# candidatess = 500177013
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.20.1000.0.8.12.pattern
+# pattern_len = 20
+# min_occ = 8
+# max_occ = 12
+# candidatess = 13406952
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.20.1000.0.75.125.pattern
+# pattern_len = 20
+# min_occ = 75
+# max_occ = 125
+# candidatess = 1033218
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.20.1000.0.750.1250.pattern
+# pattern_len = 20
+# min_occ = 750
+# max_occ = 1250
+# candidatess = 86868
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.20.1000.0.7500.12500.pattern
+# pattern_len = 20
+# min_occ = 7500
+# max_occ = 12500
+# candidatess = 8137
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.40.1000.0.1.1.pattern
+# pattern_len = 40
+# min_occ = 1
+# max_occ = 1
+# candidatess = 874628352
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.40.1000.0.8.12.pattern
+# pattern_len = 40
+# min_occ = 8
+# max_occ = 12
+# candidatess = 16462744
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.40.1000.0.75.125.pattern
+# pattern_len = 40
+# min_occ = 75
+# max_occ = 125
+# candidatess = 992360
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.40.1000.0.750.1250.pattern
+# pattern_len = 40
+# min_occ = 750
+# max_occ = 1250
+# candidatess = 65189
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.40.1000.0.7500.12500.pattern
+# pattern_len = 40
+# min_occ = 7500
+# max_occ = 12500
+# candidatess = 6299
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.100.1000.0.1.1.pattern
+# pattern_len = 100
+# min_occ = 1
+# max_occ = 1
+# candidatess = 1500540266
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.100.1000.0.8.12.pattern
+# pattern_len = 100
+# min_occ = 8
+# max_occ = 12
+# candidatess = 16886085
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.100.1000.0.75.125.pattern
+# pattern_len = 100
+# min_occ = 75
+# max_occ = 125
+# candidatess = 649245
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.100.1000.0.750.1250.pattern
+# pattern_len = 100
+# min_occ = 750
+# max_occ = 1250
+# candidatess = 39280
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
+pattern_file=web-4GB.100.1000.0.7500.12500.pattern
+# pattern_len = 100
+# min_occ = 7500
+# max_occ = 12500
+# candidatess = 3835
+--end stream sa
+--deleted pattern_buf
+text_stream.closed
+pattern_stream.closed
