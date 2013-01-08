@@ -27,6 +27,7 @@
 #include <iomanip> // for setw
 #include <map>	   // for a file map
 #include <stack>
+#include <cmath> // for H_0 for LCP 
 
 using namespace sdsl;
 using std::cout;
@@ -2117,6 +2118,9 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             size_type max_delta_x = 0;
             size_type max_delta_d = 0;
 
+			std::map<uint64_t, uint64_t> lcp_map;
+			double lcp_elements = 0.0; 
+
             m_ext_idx.seekg(0, std::ios::end);
             std::streampos end = m_ext_idx.tellg(); // get the end position
             seekg(m_ext_idx, 0, false); // load the first block
@@ -2145,6 +2149,10 @@ if(util::verbose) cout<<" "<<kmp_table[i];
                     max_delta_x = std::max(max_delta_x, delta_x);
                     max_delta_d = std::max(max_delta_d, delta_d);
                 }
+				lcp_elements += db.lcp.size();
+				for (size_type i=0; i<db.lcp.size(); ++i){
+					lcp_map[db.lcp[i]]++;
+				}
             }
             k_s = m_k-k_ir-k_re; // calculate the number of singleton blocks
 
@@ -2177,6 +2185,12 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 				std::cout << util::get_file_size( get_factorization_filename().c_str() )/(1024.0*1024.0);
 			}
 			std::cout << std::endl;
+			double h0=0;
+			for (map<uint64_t,uint64_t>::const_iterator it=lcp_map.begin(); it!=lcp_map.end(); ++it){
+				double p = it->second/lcp_elements;
+				h0 -= p*log2(p);
+			}
+			std::cout << "# H_0(lcp)="<< h0 <<std::endl;
         }
 
 };
