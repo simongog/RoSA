@@ -29,7 +29,7 @@ std::string classify_block(const tCst &cst, typename tCst::node_type block){
 	if( rb-lb == 1 ){
 		return "singleton";
 	}
-	size_type rank1 = cst.csa.wavelet_tree.rank_ith_symbol(lb, c1);
+	size_type rank1 = cst.csa.wavelet_tree.inverse_select(lb, c1);
 	size_type rank2 = cst.csa.rank_bwt(rb, c1);
 	if( rank2-rank1 == rb-lb ){
 		return "reducible";
