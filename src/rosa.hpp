@@ -837,11 +837,12 @@ class rosa {
         }
 
 		void output_tikz(){
-			cst_sct3<> cst;
-			construct(cst, file_name.c_str(), 1);
-			bit_vector bf;
+			cst_sct3<> fwd_cst;
+			construct(fwd_cst, file_name.c_str(), 1);
+			bit_vector bf(m_n+1);
+            bf[m_n] = 1; 
 			size_type blocks=0;
-			mark_blocks(cst, bf, m_b, blocks);
+			mark_blocks(fwd_cst, bf, m_b, blocks);
 			rank_support_v<> bf_rank(&bf);
             string base_name = util::basename(file_name)+"."+util::to_string(m_b);
             string bwd_csa_file_name = base_name + ".tikz." + TMP_BWD_CSA_SUFFIX;
@@ -851,13 +852,13 @@ class rosa {
 			std::vector<bwd_block_info> fwd_blocks_in_bwd;
 			size_type max_bwd_id = m_k;
 			for (size_type bwd_id=0; bwd_id<max_bwd_id; ++bwd_id){
-				fwd_blocks_in_bwd.push_back(bwd_id_to_info(bwd_id, bf_rank, cst));
+				fwd_blocks_in_bwd.push_back(bwd_id_to_info(bwd_id, bf_rank, fwd_cst));
 			}
 			write_tikz_output_bwd(bwd_out, bwd_csa, m_bf, m_bl, m_bm, m_b, fwd_blocks_in_bwd, m_min_depth);
 
 			
 			ofstream factor_out((base_name+".fac.tex").c_str());
-				
+
 			int_vector<> factorization;
 			util::load_from_file(factorization, get_factorization_filename().c_str());
 			write_tikz_array(factor_out, factorization, "facArray");
@@ -874,32 +875,20 @@ class rosa {
 				text[tmp.size()-2-i] = util::to_latex_string((unsigned char)tmp[i]);
 			text[tmp.size()-1] = util::to_latex_string((unsigned char)tmp[tmp.size()-1]);
 			write_tikz_array(factor_out, text, "FwdText", true);
-/*
+
 			ofstream fwd_out((base_name+".fwd_idx.tex").c_str());
-	        m_ext_idx.seekg(0, std::ios::end);
-            std::streampos end = m_ext_idx.tellg(); // get the end position
-            seekg(m_ext_idx, 0, false); // load the first block
-            // iterate through all blocks
-            while (m_ext_idx.tellg() < end) {
-                disk_block db;
-                db.load(m_ext_idx); // load block
 
-                ++k_ir;             // increase number of irreducible blocks
-                k_re += (db.header.size()-1); // increase the number of reducible blocks
-                n_ir += db.sa.size();
+            vector<block_info> map_info;
+            calculate_bl_and_bf_and_mapping(bwd_csa, map_info);
+            sort(map_info.begin(),map_info.end()); // sort according to bwd_lb, depth, fwd_lb and size
+            vector<block_node> v_block;  // block_node contains (delta_x, delta_d, dest_block, bwd_id)
+            size_type red_blocks=0; size_type singleton_blocks = 0; size_type elements_in_irred_blocks = 0;
+            calculate_reducible_graph(fwd_cst.csa, bf, m_b, red_blocks, singleton_blocks, elements_in_irred_blocks, v_block);
+			for (size_t i=0; i<fwd_blocks_in_bwd.size(); ++i){ v_block[fwd_blocks_in_bwd[i].block_id].bwd_id = i; }
+            vector<vector<header_item> > header_of_external_block(m_k);
+            calculate_headers(v_block, map_info, header_of_external_block);
 
-                header_in_megabyte += util::get_size_in_mega_bytes(db.header);
-                lcp_in_megabyte += util::get_size_in_mega_bytes(LcpSerializeWrapper(db.lcp));
-                sa_in_megabyte += util::get_size_in_mega_bytes(db.sa);
-// TODO: how to calculate fwd_id from bwd_id ??? 
-
-                for (size_type i=0; i<db.header.size(); ++i) {
-                    size_type bwd_id, delta_x, delta_d;
-                    db.decode_header_triple(i, bwd_id, delta_x, delta_d);
-					
-                }
-            }		
-*/			
+			write_tikz_output_fwd(fwd_out, fwd_cst, bf, m_b, v_block, header_of_external_block);			
 		}
 
 
