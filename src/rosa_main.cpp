@@ -137,7 +137,7 @@ void delete_index_files(const char* file_name, const char* output_dir, size_type
 template<class tIndex>
 void benchmark(const char* file_name, size_type b, size_type fac_dens, const char* pattern_file_name, const char* tmp_file_dir, const char* output_dir,
                bool repeated_in_memory_search=false,
-               bool only_in_memory=false, bool only_external_memory=false
+               bool only_in_memory=false, bool only_external_memory=false, bool locate_queries=false
               )
 {
     cout << "# index_suf = " << INDEX_SUF << std::endl;
@@ -200,24 +200,34 @@ void benchmark(const char* file_name, size_type b, size_type fac_dens, const cha
         size_type cnt4=0;
         size_type cnt5=0;
         sw.start();
-        for (size_type i=0, count=0; i < pf.pattern_cnt; ++i) {
-
-//if ( i>3156 ){
-//std::cerr << "i= " << i << std::endl;
-//std::cerr << "pattern_len = " << pf.pattern_len << std::endl;
-			const unsigned char* pat = (const unsigned char*)pf.get_next_pattern();
-//if(i!=97)
-//	continue;
-            count = index.count(pat, pf.pattern_len, repeated_in_memory_search);
-//}
-            cnt4 += count;
-            cnt5 += (count > 0);
-			if ( count == 0 ){
-				cout<<"i="<<i<<endl;
-				std::cerr << "pattern_len = " << pf.pattern_len << std::endl;
-				std::cerr<<"pattern="<<(const char*)pat<<std::endl;			
+		if ( locate_queries ){
+			for (size_type i=0, count=0; i < pf.pattern_cnt; ++i) {
+				const unsigned char* pat = (const unsigned char*)pf.get_next_pattern();
+				vector<size_type> result;
+				count = index.locate(pat, pf.pattern_len, result);
+				cnt4 += count;
+				cnt5 += (count > 0);
+				if ( count == 0 ){
+					cout<<"i="<<i<<endl;
+					std::cerr << "pattern_len = " << pf.pattern_len << std::endl;
+					std::cerr<<"pattern="<<(const char*)pat<<std::endl;			
+				}
 			}
-        }
+		}
+		else // else do count queries
+		{
+			for (size_type i=0, count=0; i < pf.pattern_cnt; ++i) {
+				const unsigned char* pat = (const unsigned char*)pf.get_next_pattern();
+				count = index.count(pat, pf.pattern_len, repeated_in_memory_search);
+				cnt4 += count;
+				cnt5 += (count > 0);
+				if ( count == 0 ){
+					cout<<"i="<<i<<endl;
+					std::cerr << "pattern_len = " << pf.pattern_len << std::endl;
+					std::cerr<<"pattern="<<(const char*)pat<<std::endl;			
+				}
+			}
+		}
         sw.stop();
         cout << "# cnt4 = " << cnt4 << endl;
         cout << "# cnt5 = " << cnt5 << endl;
@@ -268,6 +278,7 @@ void display_usage(char* command)
     cout << " benchmark        : run benchmark; default=0" << endl;
     cout << " benchmark_int    : run benchmark for in-memory part only; default=0" << endl;
     cout << " benchmark_ext    : run benchmark for external memory part only; default=0" << endl;
+	cout <<  "benchmark_loc    : run benchmark for locating queries; default = 0" << endl;
     cout << " pattern_file     : the pattern file for the benchmark" << endl;
     cout << " output_mem_info  : output information about the memory usage of the index" << endl;
     cout << " output_statistics: output statistics about the data structure" << endl;
@@ -307,6 +318,7 @@ int main(int argc, char* argv[])
     int run_benchmark = 0;
     int run_benchmark_int = 0;
     int run_benchmark_ext = 0;
+	int locate_queries = 0;
 	int generate_patterns = 0;
     int do_generate_index = 0;
     int delete_tmp_file = 0;
@@ -341,6 +353,7 @@ int main(int argc, char* argv[])
             {"benchmark", no_argument, &run_benchmark, 1},
             {"benchmark_int", no_argument, &run_benchmark_int, 1},
             {"benchmark_ext", no_argument, &run_benchmark_ext, 1},
+			{"benchmark_loc", no_argument, &locate_queries, 1},
             {"delete_tmp_file", no_argument, &delete_tmp_file, 1},
             {"delete_index_file", no_argument, &delete_index_file, 1},
             {"verbose", no_argument, &verbose, 1},
@@ -524,7 +537,7 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-    if (run_benchmark or run_benchmark_int or run_benchmark_ext) {
+    if (run_benchmark or run_benchmark_int or run_benchmark_ext or locate_queries) {
         if (pattern_file_name == "") {
             std::string path = get_output_dir(input_file_name.c_str(), output_dir.c_str());
             pattern_file_name =  path + "." + util::to_string(plen) +
@@ -535,6 +548,6 @@ int main(int argc, char* argv[])
         std::cerr << "pattern_file_name " << pattern_file_name << std::endl;
         benchmark<tIDX>(input_file_name.c_str(), b, fac_dens, pattern_file_name.c_str(), tmp_file_dir.c_str(),
                         output_dir.c_str(), repeated_in_memory_search,
-                        run_benchmark_int, run_benchmark_ext);
+                        run_benchmark_int, run_benchmark_ext, locate_queries);
     }
 }

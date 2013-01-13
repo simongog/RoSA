@@ -4,16 +4,17 @@ source("../src/basic_functions.R")
 
 fn="web-4GB"
 
-all_data <- data_frame_from_key_value_pairs( paste("query_performance_usb_",fn,".txt", sep="" ) )
+all_data <- data_frame_from_key_value_pairs( paste("query_performance_air_",fn,".txt", sep="" ) )
 
 bs <- unique(all_data[['b']])
 
 for(fac_dens in unique(all_data[['fac_dens']]) ){
 
+all_data2 <- subset(all_data, all_data['fac_dens']==fac_dens)
+
 for( bidx in 1:length(bs) ) {
 	threshold <- bs[bidx]
-	data <- subset(all_data, all_data['b']==threshold)	
-	data <- subset(data, data['fac_dens']==fac_dens)
+	data <- subset(all_data2, all_data2['b']==threshold)	
 
 	full_queries <- data[['full_queries']]
 	if ( max(full_queries) != min(full_queries) ){
