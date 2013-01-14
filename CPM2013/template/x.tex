@@ -1,0 +1,37 @@
+\documentclass{article}
+
+\usepackage{tikz}
+\usetikzlibrary{calc, positioning, arrows, backgrounds}
+\usepackage{pgf}
+\input{../macros/rosa_tikz.tex}
+\input{../macros/rosa_definitions.tex}
+
+\begin{document}
+
+\newcommand{\exampleFile}[0]{XXXXXXXXXX}
+
+\begin{figure}
+\tikzstyle{st_sa} = [xshift=3.2cm]
+\tikzstyle{st_elem_lcp} = [transparent]
+\tikzstyle{st_bwt} = [xshift=2cm]
+\tikzstyle{st_elem_fwdbf} = [transparent]
+\tikzstyle{st_text} = [xshift=3.6cm]
+\tikzstyle{st_interval_edge} = [transparent]
+\tikzstyle{st_block_header} = [transparent]
+	\input{\exampleFile.fwd_idx.tex}
+	\drawheaderfwd 
+\end{figure}
+
+\begin{figure}
+	\bwdIndexLayout	
+	\input{\exampleFile.bwd_idx.tex}
+\drawheaderbwd
+\markFwdBlocksInBwdIndex
+\printBlAndCBWT \\ 
+\printBmAndMinDepth
+
+\input{\exampleFile.fac.tex}
+\printFac
+\end{figure}
+
+\end{document}

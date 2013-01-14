@@ -1,0 +1,325 @@
+% This file contains definition for my thesis
+%
+% Author: Simon Gog
+
+\usepackage{amsopn} % for DeclareMathOperator
+
+\newcommand{\LCPPLAIN}{{\tt lcp\_uncompressed}}
+\newcommand{\LCPWT}{{\tt lcp\_wt}}
+\newcommand{\LCPDAC}{{\tt lcp\_dac}}
+\newcommand{\LCPKURTZ}{{\tt lcp\_kurtz}}
+\newcommand{\LCPSADA}{{\tt lcp\_support\_sada}}
+\newcommand{\LCPTREE}{{\tt lcp\_support\_tree}}
+\newcommand{\LCPTREEII}{{\tt lcp\_support\_tree2}}
+
+\newcommand{\optimalRMQ}{{\tt 2dmin}}
+\newcommand{\sctRMQ}{{\tt sct}}
+\newcommand{\succinctRMQ}{{\tt succ}}
+\newcommand{\compressedRMQ}{{\tt compr}}
+\newcommand{\sadaRMQ}{{\tt sada\_old}}
+
+\newcommand{\LCPI}[0]{\ensuremath{\mathsf{LCP_I}}}
+\newcommand{\BWTI}[0]{\ensuremath{\mathsf{BWT_I}}}
+\newcommand{\BWTSI}[0]{\ensuremath{\mathsf{BWT_I^\ll}}} % shift BWT
+\newcommand{\LFI}[0]{\ensuremath{\mathsf{LF_I}}}
+\newcommand{\LFII}[0]{\ensuremath{\mathsf{LF'_I}}}
+\newcommand{\FI}[0]{\ensuremath{\mathsf{F_I}}}
+\newcommand{\nn}[0]{\ensuremath{n_I}}
+\newcommand{\textI}[0]{\ensuremath{S_I}}
+
+\newcommand{\RUN}[0]{\ensuremath{\mathsf{RUN}}}
+
+\newcommand{\InverseSUF}[0]{\mathsf{ISA}}
+\newcommand{\SF}[1]{S_{\SUF[#1]}}
+
+% Big and small O-notation
+\newcommand{\Order}[1]{\ensuremath{\mathcal{O}(#1)}}
+\newcommand{\order}[1]{\ensuremath{o(#1)}}
+
+% Block comment
+\newcommand{\Comment}[1]{{}}
+
+% Arrays 
+\newcommand{\lcp}[0]{\ensuremath{\mathit{lcp}}}
+\newcommand{\LCP}[0]{\ensuremath{\mathsf{LCP}}}
+\newcommand{\FC}[0]{\ensuremath{\mathsf{rc}}} % bit vector which indicates the first child
+\newcommand{\LCPFC}[0]{\ensuremath{\mathsf{\LCP_{\FC}}}}
+\newcommand{\LCPFCSML}[0]{\ensuremath{\mathsf{\LCP\mathunderscore SMALL_{\FC}}}}
+\newcommand{\LCPFCBIG}[0]{\ensuremath{\mathsf{\LCP\mathunderscore BIG_{\FC}}}}
+\newcommand{\PLCP}[0]{\ensuremath{\mathsf{PLCP}}}
+\newcommand{\TLCP}[0]{\ensuremath{\mathsf{LCP'}}}
+\newcommand{\PSV}[0]{\ensuremath{\mathsf{PSV}}}
+\newcommand{\NSV}[0]{\ensuremath{\mathsf{NSV}}}
+\newcommand{\RMQ}[0]{\ensuremath{\mathsf{RMQ}}}
+\newcommand{\NAV}[0]{\ensuremath{\mathsf{NAV}}}
+\newcommand{\SUF}[0]{\ensuremath{\mathsf{SA}}}
+\newcommand{\ISA}[0]{\ensuremath{\mathsf{ISA}}}
+\newcommand{\CSA}[0]{\ensuremath{\mathsf{CSA}}}
+\newcommand{\CST}[0]{\ensuremath{\mathsf{CST}}}
+\newcommand{\CSTpp}[0]{\ensuremath{\mathsf{CST\mbox{++}}}}
+\newcommand{\ST}[0]{\ensuremath{\mathsf{ST}}}
+
+\newcommand{\LF}[0]{\ensuremath{\mathsf{LF}}}
+\newcommand{\PSI}[0]{\ensuremath{\Psi}}
+\newcommand{\CARRAY}[0]{\ensuremath{\mathsf{C}}}
+\newcommand{\rankbwt}[0]{\ensuremath{\mathit{rank\mathunderscore bwt}}}
+\newcommand{\selectbwt}[0]{\ensuremath{\mathit{select\mathunderscore bwt}}}
+\newcommand{\TEXT}[0]{\ensuremath{\mathsf{T}}}
+\newcommand{\FROW}[0]{\ensuremath{\mathsf{F}}} % first row
+\newcommand{\sentinel}[0]{\$}
+
+% balanced parentheses sequence of sada
+\newcommand{\BPSDFS}[0]{\ensuremath{\textsf{BPS}_\mathit{dfs}}}
+% balanced parentheses sequence of the Super-Cartesian-Tree
+\newcommand{\BPSSCT}[0]{\ensuremath{\textsf{BPS}_\mathit{sct}}}
+
+\newcommand{\lastocc}[0]{\ensuremath{\mathsf{last\_occ}}}
+\newcommand{\charex}[0]{\ensuremath{\mathsf{up\_char\_ex}}}
+\newcommand{\charocc}[0]{\ensuremath{no\_of\_char}}
+
+\newcommand{\iSUF}[0]{\ensuremath{\mathsf{SA}^{\mbox{-}1}}}
+%\newcommand{\BWT}[0]{\ensuremath{\mathsf{T^{\scalebox{0.5}{BWT}}}}}
+\newcommand{\BWT}[0]{\ensuremath{\mathsf{L}}}
+\newcommand{\cBWT}[0]{\ensuremath{\mathsf{c}\BWT}}  % condensed BWT
+\newcommand{\WT}[0]{\ensuremath{\mathsf{WT}}}
+
+% Alphabet definitions
+\newcommand{\alphabet}{\ensuremath{\Sigma}}
+\newcommand{\alphabetsize}{\ensuremath{{\sigma}}}
+
+% CSA operations
+
+\newcommand{\rankBWT}{\ensuremath{rank_{\BWT}}}
+\newcommand{\selectBWT}{\ensuremath{select_{\BWT}}}
+
+\newcommand{\rankbwtop}{\ensuremath{\rankbwt(i,c)}}
+\newcommand{\selectbwtop}{\ensuremath{\selectbwt(i,c)}}
+\newcommand{\bwtop}{\ensuremath{\mathit{bwt}[i]}}
+\newcommand{\psiop}{\ensuremath{\mathit{psi}[i]}}
+\newcommand{\lfop}{\ensuremath{\mathit{psi}(i)}}
+
+% ST operations
+\newcommand{\sizeop}[0]{\ensuremath{\mathit{size}()}}      % size operation
+\newcommand{\rootop}[0]{\ensuremath{\mathit{root}()}}      % root operation
+\newcommand{\isleaf}[0]{\ensuremath{\mathit{is\mathunderscore leaf}}}
+\newcommand{\isleafop}[0]{\ensuremath{\isleaf(v)}}      % root operation
+\newcommand{\ithleaf}[0]{\ensuremath{\mathit{ith\mathunderscore leaf}}}      % returns the ith leaf in the CST
+\newcommand{\ithleafop}[0]{\ensuremath{\ithleaf(i)}}      % returns the ith leaf in the CST
+
+\newcommand{\nodesop}[0]{\ensuremath{\mathit{nodes}()}}	   % return the number of nodes in the ST
+\newcommand{\idop}[0]{\ensuremath{\mathit{id}(v)}}         % returns an id in the range from
+\newcommand{\parent}[0]{\ensuremath{\mathit{parent}}} % returns the parent of node v 
+\newcommand{\parentop}[0]{\ensuremath{\parent(v)}} % returns the parent of node v 
+                                       % or root() if v equals root()
+\newcommand{\mydegree}[0]{\ensuremath{\mathit{degree}}}	
+\newcommand{\degreeop}[0]{\ensuremath{\mydegree(v)}} % number of children of node v, note:
+                                       % digree(root()) equals \alphabetsize
+\newcommand{\childop}[0]{\ensuremath{\mathit{child}(v, c)}} % returns the child w of v whose edge
+                                       % label of (v,w) start with symbol c,
+									   % or root() if such w does not exists
+\newcommand{\ithchild}[0]{\ensuremath{\mathit{ith\mathunderscore child}}}									   
+\newcommand{\ithchildop}[0]{\ensuremath{\ithchild(v, i)}} % returns the ith child of v 
+\newcommand{\firstchildop}[0]{\ensuremath{\ithchild(v, 1)}} % returns the ith child of v 
+                                               %or root() if i>degree
+\newcommand{\depth}[0]{\ensuremath{\mathit{depth}}}   
+\newcommand{\depthop}[0]{\ensuremath{\depth(v)}}   % string depth of the concatenation of
+                                       % all edge labels of the path from 
+	                                   % root() to v
+\newcommand{\nodedepthop}[0]{\ensuremath{\mathit{node\mathunderscore depth}(v)}} % Returns the depth of the node in the tree.									   
+\newcommand{\edge}[0]{\ensuremath{\mathit{edge}}}  
+\newcommand{\edgeop}[0]{\ensuremath{\edge(v, d)}}   % returns the d-th character (1-based 
+		                               % indexing) of the edge-label pointing 
+                                       % to v.
+\newcommand{\lca}[0]{\ensuremath{\mathit{lca}}}									   
+\newcommand{\lcaop}[0]{\ensuremath{\lca(v, w)}}     % returns the lowest common ancestor 
+                                       % of v and w
+\newcommand{\slop}[0]{\ensuremath{\mathit{sl}(v)}}         % suffix link operation: return the
+                                       % node in the 
+\newcommand{\wlop}[0]{\ensuremath{\mathit{wl}(v, c)}}       % Weiner link operation
+
+\newcommand{\sibling}[0]{\ensuremath{\mathit{sibling}}} % returns the sibling of a node v
+\newcommand{\siblingop}[0]{\ensuremath{\sibling(v)}} % returns the sibling of a node v
+                                       % [0..nodes()-1] 
+\newcommand{\nodeop}[0]{\ensuremath{\mathit{node}(\mathit{lb}, \mathit{rb})}} % Translate a lcp-interval to a
+                                            % node in the ST
+\newcommand{\lb}[0]{\ensuremath{\mathit{lb}}}         % Left bound of the lcp-interval of
+\newcommand{\lbop}[0]{\ensuremath{\lb(v)}}         % Left bound of the lcp-interval of
+                                       % node v
+\newcommand{\rb}[0]{\ensuremath{\mathit{rb}}}         % Left bound of the lcp-interval of
+\newcommand{\rbop}[0]{\ensuremath{\rb(v)}}         % Left bound of the lcp-interval of
+                                       % node v
+\newcommand{\poidx}{\ensuremath{\mathit{po\mathunderscore idx}}}     % Calculate the postorder index of the
+\newcommand{\poidxop}{\ensuremath{\poidx(v)}}     % Calculate the postorder index of the
+                                       % node v in the ST
+\newcommand{\tlcpidx}{\ensuremath{\mathit{tlcp\mathunderscore idx}}}  % po_idx(lca(ith_leaf(i+1),ith_leaf(i+2)))
+\newcommand{\tlcpidxop}{\ensuremath{\tlcpidx(i)}}  % po_idx(lca(ith_leaf(i+1),ith_leaf(i+2)))
+\newcommand{\csaop}{\ensuremath{\mathit{csa}[i]}}	
+\newcommand{\lcpop}{\ensuremath{\mathit{lcp}[i]}}	
+
+\newcommand{\leavesinthesubtreeop}[0]{\ensuremath{\mathit{leaves\mathunderscore in\mathunderscore the\mathunderscore subtree}(v)}}									   
+\newcommand{\rightmostleafinthesubtreeop}[0]{\ensuremath{\mathit{rightmost\mathunderscore leaf\mathunderscore in\mathunderscore the\mathunderscore subtree}(v)}}
+\newcommand{\leftmostleafinthesubtreeop}[0]{\ensuremath{\mathit{leftmost\mathunderscore leaf\mathunderscore in\mathunderscore the\mathunderscore subtree}(v)}}		
+
+% BP Support operations
+\newcommand{\excess}[0]{\ensuremath{\mathit{excess}}}
+\newcommand{\fc}[0]{\ensuremath{\mathit{find\mathunderscore close}}}       
+\newcommand{\fo}[0]{\ensuremath{\mathit{find\mathunderscore open}}}       
+\newcommand{\ec}[0]{\ensuremath{\mathit{enclose}}}       
+\newcommand{\rrec}[0]{\ensuremath{\mathit{rr\mathunderscore enclose}}}       
+\newcommand{\fwdex}[0]{\ensuremath{\mathit{fwd\mathunderscore excess}}}       
+\newcommand{\bwdex}[0]{\ensuremath{\mathit{bwd\mathunderscore excess}}}       
+\newcommand{\select}[0]{\ensuremath{\mathit{select}}}       
+\newcommand{\rank}[0]{\ensuremath{\mathit{rank}}}       
+\newcommand{\denc}[0]{\ensuremath{%
+\mathit{double\mathunderscore enclose}}}
+
+\newcommand{\excessop}[0]{\ensuremath{\excess(i)}}
+\newcommand{\fcop}[0]{\ensuremath{\fc(i)}}       
+\newcommand{\foop}[0]{\ensuremath{\fo(i)}}       
+\newcommand{\ecop}[0]{\ensuremath{\ec(i)}}       
+\newcommand{\rrecop}[0]{\ensuremath{\rrec(i, j)}}       
+\newcommand{\selectop}[0]{\ensuremath{\mathit{select}(i, c)}}       
+\newcommand{\rankop}[0]{\ensuremath{\mathit{rank}(i, c)}}       
+\newcommand{\dencop}[0]{\ensuremath{\denc(i, j)}}
+
+\newcommand{\SEP}[0]{\mbox{{\tiny\_}}}
+\newcommand{\blocksize}{\ensuremath{block\mathunderscore size}\xspace}
+\newcommand{\pioneerbp}{\ensuremath{pioneer\mathunderscore bp}\xspace}
+\newcommand{\pioneerbitmap}{\ensuremath{pioneer\mathunderscore bitmap}\xspace}
+\newcommand{\minexcessposition}[0]{%
+  \textsl{min\SEP excess\SEP position}\xspace}
+\newcommand{\nearminexcessposition}[0]{%
+  \textsl{near\SEP min\SEP excess\SEP position}\xspace}
+
+\newcommand{\nearfindopen}[0]{\textsl{near\SEP find\SEP open}\xspace}
+\newcommand{\nearfindclose}[0]{\textsl{near\SEP find\SEP close}\xspace}
+\newcommand{\nearenclose}[0]{\textsl{near\SEP enclose}\xspace}
+
+%\newcommand{\minexcessposition}[0]{\textsl{min\SEP excess\SEP position}\xspace}
+%\newcommand{\nearminexcessposition}[0]{\textsl{near\SEP min\SEP excess\SEP position}\xspace}
+\newcommand{\SDSL}[0]{{\it sdsl}}
+\newcommand{\STL}[0]{{\it STL}}
+
+%ST implementations
+\newcommand{\cstsadaimpl}[0]{{\tt cst\_sada}}   % Sadakane representation
+\newcommand{\cstsctimpl}[0]{{\tt cst\_sct}}     % OG representation
+\newcommand{\cstsctimplII}[0]{{\tt cst\_sct2}}     % OG representation
+\newcommand{\cstsctimplIII}[0]{{\tt cst\_sct3}} % OFG representation
+\newcommand{\cstY}[0]{{\tt cstY}} % Implementation of Rodrigo Canovas
+
+\newcommand{\pmrmq}[0]{\ensuremath{\pm 1\RMQ}}
+%CSA implementations
+\newcommand{\csasadaimpl}[0]{{\tt csa\_sada}}
+\newcommand{\csawtimpl}[0]{{\tt csa\_wt}}
+
+%CLCP implementations
+\newcommand{\lcpsadaimpl}{{\tt lcp\_support\_sada}}
+\newcommand{\lcptree}{{\tt lcp\_support\_tree}}
+\newcommand{\lcptreeII}{{\tt lcp\_support\_tree2}}
+
+% LCP implementations
+\newcommand{\lcpKasai}{{\sf KLAAP}}
+\newcommand{\lcpgo}{{\sf GO}}
+\newcommand{\lcpgoII}{{\sf GO2}}
+\newcommand{\lcpgoPHI}{{\sf go-}\ensuremath{\Phi}}
+\newcommand{\lcpphi}{\ensuremath{\Phi}{\sf-KMP}}
+
+\newcommand{\simpleI}{{\sf simple1}}
+\newcommand{\simpleII}{{\sf simple2}}
+
+% Algorithm notations
+\newcommand{\Keyw}[1]{{\bf #1}}
+\newcommand{\ECOM}[1]{\hspace*{1cm}%
+                     \texttt{\symbol{47}\symbol{42}}~%
+                     \mbox{\begin{small}#1\end{small}}~% TODO: color gray with xcolor package
+                     \texttt{\symbol{42}\symbol{47}}}
+
+\newcommand{\bwop}[1]{{\tt #1}}
+
+\DeclareMathOperator*{\argmin}{\arg\!\min}
+\def\polylog{{\mathop{\mathrm{polylog}}\nolimits}}
+
+\newcommand{\Lab}[0]{\mathcal{L}}
+\newcommand{\RUNS}[0]{\ensuremath{\mathcal{R}}} % runs in the bwt
+
+\newcommand{\LACA}[0]{LACA}
+
+\newcommand{\offset}[0]{\ensuremath{\mathit{offset}}}
+\newcommand{\overflow}[0]{\ensuremath{\mathit{overflow}}}
+\newcommand{\idx}[0]{\ensuremath{\mathit{idx}}}
+\newcommand{\val}[0]{\ensuremath{\mathit{val}}}
+\newcommand{\ipos}[0]{\ensuremath{\mathit{ipos}}}
+\newcommand{\jpos}[0]{\ensuremath{\mathit{jpos}}}
+\newcommand{\kpos}[0]{\ensuremath{\mathit{kpos}}}
+\newcommand{\jjpos}[0]{\ensuremath{\mathit{jp1pos}}}
+\newcommand{\cipos}[0]{\ensuremath{\mathit{cipos}}}
+\newcommand{\cjpos}[0]{\ensuremath{\mathit{cjpos}}}
+\newcommand{\ckpos}[0]{\ensuremath{\mathit{ckpos}}}
+\newcommand{\cjjpos}[0]{\ensuremath{\mathit{cjp1pos}}}
+\newcommand{\ecpos}[0]{\ensuremath{\mathit{ec}}}
+\newcommand{\rcidx}[0]{\ensuremath{\mathit{rc\mathunderscore idx}}}
+\newcommand{\lasteq}[0]{\ensuremath{\mathit{last\mathunderscore eq}}}
+
+\newcommand{\ctoleaf}[0]{\ensuremath{\mathit{c\mathunderscore to\mathunderscore leaf}}}
+\newcommand{\leaftoc}[0]{\ensuremath{\mathit{leaf\mathunderscore to\mathunderscore c}}}
+
+\newcommand{\backwardSearch}[0]{\ensuremath{\mathit{{backward\mathunderscore search}}}}
+
+%%% for balanced parentheses sequences
+\def\endmarker{xxx}
+\def\openingpioneer{((}
+\def\closingpioneer{))}
+\def\sep{|}
+
+\newcounter{bpcnt}
+
+\newcommand{\BalancedParentheses}[1]{\setcounter{bpcnt}{0}\cntParentheses#1 xxx }
+\def\cntParentheses#1 {\def\temp{#1}%
+	\ifx\temp\endmarker%
+	\else%
+		\ifx\temp\sep%
+		\ %
+		\else%
+			\put(\thebpcnt,-0.1){\line(1,0){1}}%
+			\ifx\temp\openingpioneer%
+				\put(\thebpcnt,-0.2){\line(1,0){1}}%
+			\fi%
+			\ifx\temp\closingpioneer%
+				\put(\thebpcnt,-0.2){\line(1,0){1}}%
+			\fi%
+			\put(\thebpcnt,0){%
+				\makebox(1,2.2)[bl]{%
+			\ifx\temp\openingpioneer%
+			{\bf(}%
+			\else%
+				\ifx\temp\closingpioneer%
+				{\bf)}%
+				\else%
+				#1%
+				\fi\fi%
+				}}%
+		\fi%
+	    \addtocounter{bpcnt}{1}%
+		\expandafter\cntParentheses%
+	\fi%	
+}
+
+\newcommand{\printinunits}[1]{\setcounter{bpcnt}{0}\unitsprint#1 xxx }
+\def\unitsprint#1 {\def\temp{#1}%
+	\ifx\temp\endmarker%
+	\else%
+		\put(\thebpcnt,0){%
+			\makebox(1,2.2)[bl]{%
+			#1%
+		}}%
+	    \addtocounter{bpcnt}{1}%
+		\expandafter\unitsprint%
+	\fi%	
+}
+
+
+\newcommand{\MEM}[0]{MEM\xspace}
+\newcommand{\bwdMEM}{{\sl backwardMEM}\xspace}
+\newcommand{\spMEM}{{\sl sparseMEM}\xspace}
+\newcommand{\MUMmer}{{\sl MUMmer}\xspace}
+\newcommand{\vmatch}{{\sl vmatch}\xspace}
