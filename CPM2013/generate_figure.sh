@@ -13,6 +13,13 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
+if [ $# -gt 1 ]; then
+	threshold=${2}
+fi
+if [ $# -gt 2]; then
+	fac_dens=${3}
+fi
+
 basename=`basename ${1}`
 
 ${rosa_exec} --input_file=${1} --threshold=${threshold} --fac_dens=${fac_dens} --generate_index --tmp_file_dir=${tmp_dir}/ --output_dir=${tmp_dir}/
@@ -29,4 +36,5 @@ pdflatex ${tmp_tex_file}
 mv ${tmp_pdf_file} ..
 cd ..
 
- rm ${tmp_dir}/*
+rm ${tmp_dir}/*
+rm ${basename}_rev
