@@ -360,15 +360,17 @@ class rosa {
         void open_streams() {
 			if ( m_fac_dens == 0 ){
 				open_stream(m_text, m_file_name.c_str());
+				m_lz_width = 0;
+				m_lz_size = 0;
 			}else{
 				open_stream(m_glz_text, get_factorization_filename().c_str());
-			}
-			{
-				int_vector_file_buffer<> glz_buffer(get_factorization_filename().c_str());
-				m_lz_width = glz_buffer.int_width;
-				m_lz_size  = glz_buffer.int_vector_size;
-				if (util::verbose){
-					cout<<"m_lz_width = "<<(int)m_lz_width<<" m_lz_size = "<<m_lz_size<<endl;
+				{
+					int_vector_file_buffer<> glz_buffer(get_factorization_filename().c_str());
+					m_lz_width = glz_buffer.int_width;
+					m_lz_size  = glz_buffer.int_vector_size;
+					if (util::verbose){
+						cout<<"m_lz_width = "<<(int)m_lz_width<<" m_lz_size = "<<m_lz_size<<endl;
+					}
 				}
 			}
 			open_stream(m_ext_idx, get_ext_idx_filename().c_str());
@@ -791,7 +793,7 @@ class rosa {
                         block_addr[fwd_id] = ext_idx_size_in_bytes;
                         ext_idx_size_in_bytes += db.serialize(ext_idx_out);
                         total_header_in_bytes += db.header_size_in_bytes();
-						sa_buf[0] = sa_buf[block_len];
+						sa_buf[1] = sa_buf[block_len];
 						lcp_buf[0] = lcp_buf[block_len];
                     }
                 }
@@ -845,6 +847,8 @@ class rosa {
 			mark_blocks(fwd_cst, bf, m_b, blocks);
 			rank_support_v<> bf_rank(&bf);
             string base_name = util::basename(file_name)+"."+util::to_string(m_b);
+
+            base_name = m_output_dir + "/" + base_name;
             string bwd_csa_file_name = base_name + ".tikz." + TMP_BWD_CSA_SUFFIX;
 			ofstream bwd_out((base_name+".bwd_idx.tex").c_str());
 			tCsa bwd_csa;
@@ -936,6 +940,9 @@ class rosa {
             if (NULL == file_name) {
                 return; // if no file_name is specified do not construct the index
             }
+
+
+
 //          (0) Initialise path for the external parts of the data structure
             m_file_name = string(file_name);
             m_output_dir = get_output_dir(file_name, output_dir);
@@ -943,6 +950,43 @@ class rosa {
             string bwd_csa_file_name = path + "." + TMP_BWD_CSA_SUFFIX;
             string fwd_csa_file_name = path + "." + TMP_FWD_CSA_SUFFIX;
             string tmp_dir = (util::dirname(tmp_file_dir)+"/"+util::basename(tmp_file_dir)+"/");
+
+
+			if ( m_fac_dens > 0 )
+			{
+        		string zero_ext_idx_file = get_ext_idx_filename(m_file_name.c_str(), b, 0, m_output_dir.c_str());
+				ifstream zero_ext_stream(zero_ext_idx_file.c_str());
+				if ( zero_ext_stream ){
+					std::cout<<"CACHE: 0-external index existed at "<<zero_ext_idx_file<<"; opened stream;"<<std::endl;
+				
+        			string zero_int_idx_file = get_int_idx_filename(m_file_name.c_str(), b, 0, m_output_dir.c_str());
+					ifstream zero_int_stream(zero_int_idx_file.c_str());
+					if ( zero_int_stream ) {
+						std::cout<<"CACHE: 0-internal index existed at "<<zero_int_idx_file<<"; opened stream;"<<std::endl;
+						load(zero_int_stream);
+						m_fac_dens = fac_dens;
+						std::cout<<"CACHE: internal index loaded"<<std::endl;
+						std::cout<<"CACHE: m_k="<<m_k<<std::endl;
+						zero_int_stream.close();
+						bit_vector is_singleton(m_k);
+						// scan trough blocks and if a bwd_id occurs in the header mark is_singleton[bwd_id]=0!
+						fill_singleton_bit_vector(zero_ext_stream, is_singleton);
+						zero_ext_stream.close();
+						bit_vector factor_borders;
+						write_R_output("CACHE: parse","construct","begin");
+						greedy_parse(tmp_dir, factor_borders, fac_dens);
+						write_R_output("CACHE: parse","construct","end");
+						write_R_output("CACHE: ext_idx","replace_pointers","begin");
+						replace_pointers(factor_borders, is_singleton, zero_ext_idx_file);
+						write_R_output("CACHE: ext_idx","replace_pointers","end");
+						util::clear(factor_borders);
+						util::clear(is_singleton);
+						open_streams();
+						return;	
+					}
+				}
+				cout << "cached construction not possible" << endl;
+			}
 
             cache_config config(false, tmp_dir, util::basename(m_file_name));
 			string lcp_file = util::cache_file_name(constants::KEY_LCP, config);
@@ -1060,8 +1104,9 @@ class rosa {
 				write_R_output("parse","construct","end");
 //			(14) Replace SA text pointers by SA LZ-text pointers
 				write_R_output("ext_idx","replace_pointers","begin");
-				replace_pointers(factor_borders, is_singleton);
+				replace_pointers(factor_borders, is_singleton, get_tmp_ext_idx_filename());
 				write_R_output("ext_idx","replace_pointers","end");
+				std::remove(get_tmp_ext_idx_filename().c_str());
 				util::clear(factor_borders);
 				util::clear(is_singleton);
 			}
@@ -1097,6 +1142,17 @@ class rosa {
 			}
 		}
 
+		void output_factors(){
+			string out_name = ("./"+util::basename(m_file_name)+".all_factors");
+			ofstream res_out(out_name.c_str());
+			for (size_type i=0; i<m_k; ++i){
+				std::string factor;
+				extract_factor(i, factor);
+				res_out.write(factor.c_str(), factor.size());
+			}
+			res_out.close();
+		}
+
 		void factor_frequency(){
 			if ( m_fac_dens > 0 ){
 				string out_name = ("./"+util::basename(m_file_name)+".occ_freq");
@@ -1127,17 +1183,33 @@ class rosa {
 			}
 		}
 
+		void fill_singleton_bit_vector(std::ifstream &ext_idx_stream, bit_vector &is_singleton){
+			util::set_one_bits(is_singleton);// initialize all blocks to singleton
+	        ext_idx_stream.seekg(0, std::ios::end);
+            std::streampos end = ext_idx_stream.tellg(); // get the end position
+            ext_idx_stream.seekg( 0, std::ios::beg); // goto the first block
+            while (ext_idx_stream.tellg() < end) {
+                disk_block db;
+                db.load(ext_idx_stream); // load block, and therefore headers
+                for (size_type i=0; i<db.header.size(); ++i) { // loop through header entries
+                    size_type bwd_id, delta_x, delta_d;
+                    db.decode_header_triple(i, bwd_id, delta_x, delta_d);
+					is_singleton[bwd_id] = 0; // delete singleton flag for non-singleton blocks
+                }
+			}
+		}
+
 		/*!  
 		 *  Adjust SA pointers in disk blocks to factorization
 		 *  Adjust SA singleton pointers in condensed BWT
 		 */
-		void replace_pointers(const bit_vector& factor_borders, const bit_vector& is_singleton){
+		void replace_pointers(const bit_vector& factor_borders, const bit_vector& is_singleton, string stream_name){
 			rank_support_v<> factor_borders_rank(&factor_borders);
 			ifstream tmp_ext_idx;
-			open_stream(tmp_ext_idx, get_tmp_ext_idx_filename().c_str());
+			open_stream(tmp_ext_idx, stream_name.c_str());
 	        tmp_ext_idx.seekg(0, std::ios::end);
             std::streampos end = tmp_ext_idx.tellg(); // get the end position
-            seekg(tmp_ext_idx, 0, false); // load the first block
+            seekg(tmp_ext_idx, 0, false); // goto the first block
 			ofstream ext_idx(get_ext_idx_filename().c_str());
 			map<uint64_t, uint64_t> old_pointer_to_new; // maps the old pointers to the new ones
 			uint64_t p_old = 0, p_new = 0;
@@ -1153,8 +1225,6 @@ class rosa {
 				p_new += db.serialize(ext_idx);
 			}
 			ext_idx.close();
-			std::remove(get_tmp_ext_idx_filename().c_str());
-
 
 			for (size_type i=0; i<m_k; ++i){
 				if ( is_singleton[i] ) {

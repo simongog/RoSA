@@ -278,7 +278,7 @@ void display_usage(char* command)
     cout << " benchmark        : run benchmark; default=0" << endl;
     cout << " benchmark_int    : run benchmark for in-memory part only; default=0" << endl;
     cout << " benchmark_ext    : run benchmark for external memory part only; default=0" << endl;
-	cout <<  "benchmark_loc    : run benchmark for locating queries; default = 0" << endl;
+	cout << " benchmark_loc    : run benchmark for locating queries; default = 0" << endl;
     cout << " pattern_file     : the pattern file for the benchmark" << endl;
     cout << " output_mem_info  : output information about the memory usage of the index" << endl;
     cout << " output_statistics: output statistics about the data structure" << endl;
@@ -291,7 +291,8 @@ void display_usage(char* command)
     cout << " interactive      : enter interactive mode after creating/loading the index." << endl;
     cout << " greedy           : do a greedy parse." << endl;
 	cout << " reconstruct_text : reconstruct text from factorization and condensed BWT." << endl;
-	cout << " factor_occ_freq  : outputs for all x the number of factors which occur x times." << endl;
+	cout << " factor_occ_freq  : outputs for all x the number of factors which occur x times in. Written to <input_file>.occ_freq" << endl;
+	cout << " output_factors   : outputs all potential factors in file <input_file>.all_factors." <<endl;
     cout << endl;
     cout << "* if pattern_min_occ=pattern_max_occ=0 this restriction is not used in the " << endl;
     cout << "  pattern generation process." << endl;
@@ -329,6 +330,7 @@ int main(int argc, char* argv[])
     int greedy = 0;
 	int reconstruct_text = 0;
 	int factor_occ_freq = 0;
+	int output_factors = 0;
 
     int c;
     while (1) {
@@ -361,6 +363,7 @@ int main(int argc, char* argv[])
             {"greedy",no_argument, &greedy, 1},
 			{"reconstruct_text", no_argument, &reconstruct_text, 1},
 			{"factor_occ_freq", no_argument, &factor_occ_freq, 1},
+			{"output_factors", no_argument, &output_factors, 1},
             {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -468,7 +471,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq or output_tikz) {
+    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq or output_tikz or output_factors) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, fac_dens, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
@@ -492,7 +495,9 @@ int main(int argc, char* argv[])
 				index.reconstruct_text();
 			}else if (factor_occ_freq){
 				index.factor_frequency();
-			}else if(output_tikz){
+			}else if (output_factors){
+				index.output_factors();
+			}else if (output_tikz){
 				index.output_tikz();
 			}
         } else {
