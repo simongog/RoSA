@@ -293,6 +293,7 @@ void display_usage(char* command)
 	cout << " reconstruct_text : reconstruct text from factorization and condensed BWT." << endl;
 	cout << " factor_occ_freq  : outputs for all x the number of factors which occur x times in. Written to <input_file>.occ_freq" << endl;
 	cout << " output_factors   : outputs all potential factors in file <input_file>.all_factors." <<endl;
+	cout << " add_factor_border: add information to the in-memory data structure to answer locate query for fac_dens>0" << endl;
     cout << endl;
     cout << "* if pattern_min_occ=pattern_max_occ=0 this restriction is not used in the " << endl;
     cout << "  pattern generation process." << endl;
