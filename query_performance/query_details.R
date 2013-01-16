@@ -9,16 +9,16 @@ data['utime_full'] <- data['utime_full']/data['full_queries']
 d_mean <- aggregate(data[c('rtime_full','utime_full','fac_dens','disk_access_per_query','phase')] ,list(data[['fac_dens']],data[['phase']]),mean)
 
 dd <- d_mean[order(d_mean['fac_dens'],d_mean['phase']),]
-
+phases=6
 tab <- dd[['rtime_full']]
-dim(tab) <- c(5, length(tab)/5)
-for(i in seq(2,5)){
+dim(tab) <- c(phases, length(tab)/phases)
+for(i in seq(2,phases)){
 	tab[i] <- tab[i]-tab[i-1]
 }
 
-mycol=head(topo.colors(10),5)
+mycol=topo.colors(2*phases)[seq(1,2*phases,2)]
 barplot(tab, names.arg=unique(dd[['fac_dens']]), ylab="elapsed time per query phase in [millisec]",col=mycol, xlab="K",
-		main=paste("Detailed runtime of a count query ", "l=40, k=100",sep=""))
-legend("topleft", legend=rev(c("condensed BWT matching","load disk block","build block tree","load text","match pattern")),
+		main=paste("Detailed rtime of a count query ", "l=40, k=100",sep=""))
+legend("topleft", legend=rev(c("condensed BWT matching","load disk block","build block tree","block tree matching","load text","match pattern")),
 		fill=rev(mycol))
 

@@ -121,6 +121,8 @@ class rosa {
         // if ep-sp > 0 or SA[sp] if sp=ep.
 
 		size_type				m_fac_dens; // every `m_fac_dens`-th factor is an entry point to the text
+		sd_vector<>				m_factor_border;		// bitvector which marks every end of a sampled factor in the text
+		sd_select_support<>		m_factor_border_select; // select support for m_factor_border
 
         string					m_file_name;  // file name of the supported text
         string					m_output_dir; // output directory
@@ -139,6 +141,7 @@ class rosa {
         mutable size_type m_count_int_match;   		// see corresponding public member
         mutable size_type m_count_queries;	   		// see corresponding public member
         mutable size_type m_count_block_length;     // see corresponding public member
+		mutable stop_watch m_sw; // stop watch to timing of the parts
 #endif
 
         //! Internal helper class for an external block
@@ -749,9 +752,6 @@ class rosa {
 				sa_stream.read((char*)&sa_width,sizeof(sa_width)); lcp_stream.read((char*)&lcp_width,sizeof(lcp_width));
 				int_vector<64> sa_buf(m_b+1, 0);
 				int_vector<64> lcp_buf(m_b+1, 0);
-//				int_vector<> lcp;
-//				util::load_from_file(lcp, lcp_file);
-				size_type sa_size_in_bytes = 0;
 				size_type sa_size_in_bytes1 = 0;
 
                 for (size_t fwd_id=0; fwd_id < header_of_external_block.size(); ++fwd_id) {
@@ -777,18 +777,8 @@ class rosa {
 //							}
 						}
 						size_type block_len = rb-lb+1;
-//						cout<<"["<<lb<<","<<rb<<"]"<<endl;
-						//             sa_buf and lcp_buf store block_len+1 integers 
                         db.set_content(sa_buf, lcp_buf, (const unsigned char*)text, block_len);
 						sa_size_in_bytes1 += util::get_size_in_bytes(db.sa);
-
-						sa_size_in_bytes += 9 + (((bit_magic::l1BP(block_len)+1)*block_len+63)/64)+8;
-						sort(sa_buf.begin(), sa_buf.begin()+block_len);
-						size_type sa_diff_bits = coder::elias_delta::encoding_length(sa_buf[0]);
-						for (size_t i=1; i < block_len; ++i){ 
-							sa_diff_bits += coder::elias_delta::encoding_length(sa_buf[i]-sa_buf[i-1]);
-						}
-						sa_size_in_bytes += ((sa_diff_bits+63)/64)*8;
 
                         block_addr[fwd_id] = ext_idx_size_in_bytes;
                         ext_idx_size_in_bytes += db.serialize(ext_idx_out);
@@ -801,7 +791,7 @@ class rosa {
                 delete [] text;
                 if (util::verbose)cout<<"# ext_idx_size_in_MB = "<<ext_idx_size_in_bytes/(1024.0*1024.0)<<"\n";
                 if (util::verbose)cout<<"# ext_idx_header_size_in_MB = "<<total_header_in_bytes/(1024.0*1024)<<"\n";
-				if (util::verbose)cout<<"# sa_size_in_MB = " << ((double)sa_size_in_bytes)/(1024*1024.0) << "\n";
+				if (util::verbose)cout<<"# sa_size_in_MB = " << ((double)sa_size_in_bytes1)/(1024*1024.0) << "\n";
 				if (util::verbose)cout<<"# sa_size1_in_MB = " << ((double)sa_size_in_bytes1)/(1024*1024.0) << "\n";
                 for (size_t fwd_idx = 0; fwd_idx < v_block.size(); ++fwd_idx) {
                     size_type lb = fwd_bf_select(fwd_idx+1);
@@ -1279,7 +1269,11 @@ class rosa {
                     if (util::verbose) {
                         std::cout<<"answered in-memory"<<std::endl;
                     }
-                    return get_all_occurences(d, lb, rb, res);
+					size_type count = get_all_occurences(d, lb, rb, res);
+					if ( m_fac_dens > 0 ){
+						replace_pointers_by_positions(pattern, m, res);	
+					}
+					return count;
                 } else { // m > d
                     // (2) query external memory data structure
                     size_type bwd_id = get_bwd_id(lb, d);
@@ -1287,6 +1281,7 @@ class rosa {
                         size_type sa = m_pointer[bwd_id];
                         if ( m_fac_dens > 0 and match_pattern_lz(pattern, m, m_fac_dens*sa) ) {
                             res.push_back(sa);
+							replace_pointers_by_positions(pattern, m, res);	
                             return 1;
                         }else if( 0 == m_fac_dens and match_pattern(pattern+d, m-d, sa+d) ){
 							res.push_back(sa);
@@ -1294,13 +1289,17 @@ class rosa {
 						}
                     } else {
                         size_type block_addr = m_pointer[bwd_id];
-                        return search_block(pattern+d, m-d, d, rb+1-lb, bwd_id, block_addr, &res);
+                        size_type count = search_block(pattern+d, m-d, d, rb+1-lb, bwd_id, block_addr, &res);
+						if ( m_fac_dens > 0 ){
+							replace_pointers_by_positions(pattern, m, res, block_addr);	
+						}
+						return count;
                     }
                 }
             }
             return 0;
-
         }
+
 
         //! Count the number of occurrences of a pattern of length m
         /*!
@@ -1681,21 +1680,17 @@ class rosa {
             disk_block db;
             for (size_t i=0; i < res_block.size(); ++i) {
                 if (0 == i or res_block[i-1].block_addr != res_block[i].block_addr) {
-                    if (util::verbose) {
-                        cout<<"i="<<i<<" res_block[i].block_addr="<<res_block[i].block_addr<<endl;
-                    }
+                    if (util::verbose) { cout<<"i="<<i<<" res_block[i].block_addr="<<res_block[i].block_addr<<endl; }
                     seekg(m_ext_idx, res_block[i].block_addr);
                     db.load(m_ext_idx);
-                    if (util::verbose) {
-                        cout<<"i="<<i<<" block_loaded loc.size()="<<loc.size()<<" loc_idx="<<loc_idx<<endl;
-                    }
+                    if (util::verbose) { cout<<"i="<<i<<" block_loaded loc.size()="<<loc.size()<<" loc_idx="<<loc_idx<<endl; }
                 }
                 size_type delta_x = 0, delta_d = 0;
                 db.get_delta_x_and_d(res_block[i].bwd_id, delta_x, delta_d);
                 lb = delta_x;
                 rb = delta_x + res_block[i].size - 1;
                 for (size_type j=lb; j <= rb; ++j) {
-                    loc[loc_idx++] = m_fac_dens*db.sa[j];
+                    loc[loc_idx++] = db.sa[j];
                 }
             }
             if (util::verbose) {
@@ -1897,6 +1892,9 @@ class rosa {
             if (util::verbose) {
                 std::cout<<"serach_block("<<pattern<<","<<m<<","<<depth<<","<<size<<","<<bwd_id<<","<<block_addr<<")\n";
             }
+#ifdef BENCHMARK_INTERNAL_MATCH_ONLY
+			return size;
+#endif			
             disk_block db;				                     // disk block object
             seekg(m_ext_idx, block_addr);                    // seek to the start address of the disk block
             db.load(m_ext_idx);			                     // fetch the disk block (load the header, LCP
@@ -1908,6 +1906,7 @@ class rosa {
             size_type lb = delta_x, rb = delta_x+size-1;     // determine left and right bound
 #ifdef BENCHMARK_LOAD_ONLY
             // don't construct and match
+			return db.sa.size();
 #else
             block_tree tree(db);							 // create tree structure out of the block
 #ifdef BENCHMARK_CREATE_ONLY
@@ -1930,7 +1929,7 @@ class rosa {
                 if (NULL != loc) {
 					if ( m_fac_dens > 0 ){
 						for (size_type i=lb; i<=rb; ++i) {
-							loc->push_back(m_fac_dens*db.sa[i]);
+							loc->push_back(db.sa[i]);
 						}
 					} else {
 						for (size_type i=lb; i<=rb; ++i) {
@@ -1965,6 +1964,9 @@ class rosa {
             while (m > 0) {
                 size_type len = std::min(m, m_buf_size);
                 m_text.read((char*)m_buf, len);
+#ifdef NO_FINAL_MATCHING
+			return !m_text.fail();
+#endif
                 int res;
                 if (0 != (res=memcmp(pattern, m_buf, len))) {
 					return false;
@@ -2010,12 +2012,13 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 			if ( util::verbose ) cout<<"lz_bit_offset = "<<lz_bit_offset<<endl;
 			
 			seekg(m_glz_text, ((lz_bit_offset)/64)*8+9);
-			
-			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
-			calculate_kmp_table(pattern, m, kmp_table);
+
 //TODO: handle the case where we load multiple blocks form disk				
 			size_type len = ((m_lz_width*(lz_offset+m+(m_fac_dens-1))-1)/64)-((m_lz_width*lz_offset)/64)+1; // len in 64 bit words
-			len = std::min(len, m_buf_size+(m_fac_dens-1));
+			if ( len > m_buf_size+m_fac_dens-1 ){
+				cout << "WARNING (match_pattern_lz): buffer to small!" << endl;
+				len = m_buf_size+(m_fac_dens-1);
+			}
 			
 			size_type cur_end_word = (m_lz_width*lz_offset)/64+len;
 			size_type the_end_word = (m_lz_width*m_lz_size+63)/64;
@@ -2026,17 +2029,23 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 			if ( util::verbose ) cout<<"len="<<len<<endl;
 			size_type matched = 0;
 			
-			/// TODO take care about failbit!!!
-
 			if( util::verbose ) cout<<"XXX m_glz_text.fail()="<<m_glz_text.fail()<<endl;
 			m_glz_text.read((char*)m_buf_lz, 8*len);
+
+#ifdef NO_FINAL_MATCHING
+			return !m_glz_text.fail();
+#endif			
+
+			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
+			calculate_kmp_table(pattern, m, kmp_table);
+
+
 				
 			uint8_t bit_offset = lz_bit_offset&0x3F;
 			if ( util::verbose ) cout<<"bit_offset="<<(int)bit_offset<<endl;
 			const uint64_t *word = m_buf_lz;
 			while ( word < m_buf_lz+len-1 or (word == m_buf_lz+len-1 and bit_offset+m_lz_width <= 64) ){
 				uint64_t factor_id = bit_magic::read_int_and_move(word, bit_offset, m_lz_width);
-				++lz_offset;
 				if ( util::verbose ) cout << "factor id=" << factor_id << 
 					" word="<<word <<
 					" bit_offset="<<(int)bit_offset<< " m_lz_width="<<(int)m_lz_width << endl;
@@ -2049,10 +2058,6 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 							return true;
 						++i; ++matched;
 					}else{
-//						if( util::verbose  and factor_string.size()==67){
-//							cout<<"factor_string["<<i<<"]="<<factor_string[i]<<"!="<<pattern[matched]<<"=pattern["<<matched<<"]"<<endl;
-//							cout<<(int)factor_string[i]<<"!="<<(int)pattern[matched]<<endl;
-//						}
 						if ( matched > 0 ){
 							matched = kmp_table[matched-1];
 						}else{
@@ -2060,7 +2065,7 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 						}
 					}
 				}
-				if( util::verbose ) cout << "matched so far = "<<matched<<endl;
+				if( util::verbose ) cout << "count: matched so far = "<<matched<<endl;
 				if (factor_id==0)
 					break;
 			}
@@ -2068,8 +2073,115 @@ if(util::verbose) cout<<" "<<kmp_table[i];
 			return false;
 		}
 
-		
+		//! Replaces the pointers to factors by positions in the text where the pattern occurs
+		void replace_pointers_by_positions(const unsigned char *pattern, size_type m, vector<size_type> &res, size_type block_addr=0)const{
+//			if ( util::verbose ) cout<<"replace_pointers_by_positions("<<pattern<<","<<m<<",res.size="<<res.size()<<")"<<endl;
+//cout<<"replace_pointers_by_positions("<<pattern<<","<<m<<",res.size="<<res.size()<<","<<block_addr<<")"<<endl;
+			sort(res.begin(), res.end()); // sort pointers
+			// calculate KMP table
+			int_vector<> kmp_table(m, 0, bit_magic::l1BP(m)+1);
+			calculate_kmp_table(pattern, m, kmp_table);
+			vector<size_type> factor_sample_pointer;
+			res.swap(factor_sample_pointer);
 
+
+//sd_rank_support<> rank(&m_factor_border);
+//size_type sampled_factors = rank(m_factor_border.size());
+
+			// iterate through pointers
+			for(size_type fs=0; fs<factor_sample_pointer.size();){ 
+				// determine for many occurrences lie in the region the pointer refers to
+				size_type occs = 1;
+				while ( ++fs < factor_sample_pointer.size() and factor_sample_pointer[fs] == factor_sample_pointer[fs-occs] ){
+					++occs;
+				}
+//cout<<"i="<<i<<" occs="<<occs<<endl;
+//cout<<"factor_sample_pointer.size()="<<factor_sample_pointer.size()<<endl;
+//cout<<"factor_sample_pointer[i-occs]="<<factor_sample_pointer[i-occs]<<endl;
+//cout<<"m_factor_border.size()="<<m_factor_border.size()<<endl;
+//sd_rank_support<> rank(&m_factor_border);
+//cout<<"rank("<<m_factor_border.size()<<")="<<rank(m_factor_border.size())<<endl;
+//cout<<"factor_sample_pointer[fs-occs]="<<factor_sample_pointer[fs-occs]<<" / "<<sampled_factors<<endl;
+//				if ( factor_sample_pointer[fs-occs] >= sampled_factors ){
+//					cout<<"Ooops"<<endl;
+//					return;
+//				}
+
+//cout<<"m_factor_border_select("<<factor_sample_pointer[fs-occs]<<")="<< m_factor_border_select(factor_sample_pointer[fs-occs])<<endl;
+				// TODO add m_factor_border m_factor_border_select
+				size_type position = 0;
+				if ( factor_sample_pointer[fs-occs] > 0 ){
+					position = m_factor_border_select(factor_sample_pointer[fs-occs])+1; // map starting factor to text position
+				}
+//cout<<"position="<<position<<endl;				
+				size_type factor_nr = factor_sample_pointer[fs-occs]*m_fac_dens;
+
+				size_type factor_bit_offset = m_lz_width*factor_nr;
+				if ( util::verbose ) cout<<"factor_nr = "<<factor_nr<<"  /  lz_size = "<<m_lz_size<<endl;
+				if ( util::verbose ) cout<<"factor_bit_offset = "<<factor_bit_offset<<endl;
+			
+				seekg(m_glz_text, ((factor_bit_offset)/64)*8+9);
+
+				size_type len = ((m_lz_width*(factor_nr+m+(m_fac_dens-1))-1)/64)-((m_lz_width*factor_nr)/64)+1; // len in 64 bit words
+				if ( len > m_buf_size+(m_fac_dens-1) ){
+					cout << "WARNING (replace pointers by positions): buffer to small" << endl;
+					len = m_buf_size+(m_fac_dens-1);
+				}
+			
+				size_type cur_end_word = (m_lz_width*factor_nr)/64+len;
+				size_type the_end_word = (m_lz_width*m_lz_size+63)/64;
+				if ( cur_end_word > the_end_word ){ // check that we don't go beyond EOF
+					len = the_end_word - ((m_lz_width*factor_nr)/64);
+				}
+
+				if ( util::verbose ) cout<<"len="<<len<<endl;
+				size_type matched = 0;
+			
+				if( util::verbose ){  cout<<"XXX m_glz_text.fail()="<<m_glz_text.fail()<<endl;
+					cout<<"pattern searched="<<pattern<<endl;
+				}
+				m_glz_text.read((char*)m_buf_lz, 8*len);
+
+				uint8_t bit_offset = factor_bit_offset&0x3F;
+				if ( util::verbose ) cout<<"bit_offset="<<(int)bit_offset<<endl;
+				const uint64_t *word = m_buf_lz;
+
+				while (occs and ( word < m_buf_lz+len-1 or (word == m_buf_lz+len-1 and bit_offset+m_lz_width <= 64) ) ){
+					uint64_t factor_id = bit_magic::read_int_and_move(word, bit_offset, m_lz_width);
+					if ( util::verbose ) cout << "factor id=" << factor_id << 
+						" word="<<word <<
+						" bit_offset="<<(int)bit_offset<< " m_lz_width="<<(int)m_lz_width << " / end_word="<<m_buf_lz+len-1<<" end offset="<<(int)bit_offset<<endl;
+					string factor_string;
+					extract_factor(factor_id, factor_string); 
+					if ( util::verbose ) cout << "factor string=" << factor_string << endl;
+					for(size_type i=0; i < factor_string.size() and occs; ){
+						if ( matched < m and (unsigned char)factor_string[i] == pattern[matched] ){
+							if (matched==m-1){
+								--occs;
+								res.push_back( position + i - matched );
+								if ( !occs ){
+									if(util::verbose){
+										cout<<"FOUND ALL OCCURRENCES"<<endl;
+									}
+									break;
+								}
+							}
+							++i; ++matched;
+						}else{
+							if ( matched > 0 ){
+								matched = kmp_table[matched-1];
+							}else{
+								++i;
+							}
+						}
+					}
+					position += factor_string.size();
+					if( util::verbose ) cout << "replace: matched so far = "<<matched<<" occs="<<occs<<" i="<<fs<<"/"<<factor_sample_pointer.size()<<" position="<<position<<endl;
+					if (factor_id==0)
+						break;
+				}
+			}
+		}
 
 
         void reset_counters() {
@@ -2116,6 +2228,10 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             written_bytes += util::write_member(m_file_name, out, child, "file_name");
             written_bytes += util::write_member(m_output_dir, out, child, "output_dir");
 			written_bytes += util::write_member(m_fac_dens, out, child, "fac_dens");
+			if ( m_fac_dens > 0 and m_factor_border.size() > 0 ) {
+				written_bytes += m_factor_border.serialize(out, child, "factor_border");
+				written_bytes += m_factor_border_select.serialize(out, child, "factor_border_select");
+			}
             structure_tree::add_size(child, written_bytes);
             return written_bytes;
         }
@@ -2146,6 +2262,35 @@ if(util::verbose) cout<<" "<<kmp_table[i];
             util::read_member(m_file_name, in);
             util::read_member(m_output_dir, in);
 			util::read_member(m_fac_dens, in);
+			char test_next;
+			util::read_member(test_next, in);
+			if ( m_fac_dens > 0 and in.eof() ){
+				cout<<"m_factor_border does not exists. Try to create it."<<endl;
+				bit_vector factor_border;
+				if ( util::load_from_file( factor_border, get_factor_border_filename().c_str() ) ){
+					for (size_type i=0, do_not_sample=m_fac_dens; i < factor_border.size(); ++i){
+						if ( factor_border[i] ){
+							if ( --do_not_sample ){
+								factor_border[i] = 0;
+							}else{
+								do_not_sample = m_fac_dens;	
+							}
+						}
+					}
+					{
+						sd_vector<> temp(factor_border);
+						m_factor_border.swap(temp);
+					}
+					util::init_support( m_factor_border_select, &m_factor_border );
+					cout<<"m_factor_border generated"<<endl;
+				}else{
+					cout << "could not create m_factor_border; file "<<get_factor_border_filename()<<" does not exist." <<endl;
+				}
+			}else{
+				in.putback(test_next);
+				m_factor_border.load(in);
+				m_factor_border_select.load(in, &m_factor_border);
+			}
             open_streams();
         }
 

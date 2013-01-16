@@ -26,7 +26,7 @@ for fac_dens in 0 1 4 16 64 256 1024; do
 	for i in `seq 1 ${repetitions}`; do
 		for pattern_len in 40; do
 			for occ in "75 125"; do 
-				for suffix in '0' '1' '2' '3' '4'; do
+				for suffix in '0' '1' '2' '3' '4' '5'; do
 					if [[ "$os" == 'Darwin' ]]; then
 						purge
 					fi

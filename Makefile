@@ -10,6 +10,12 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/bu_interval.o \
 	 ${BIN_DIR}/pattern_file.o \
 	 ${BIN_DIR}/rosa_sd2_delta \
+	 ${BIN_DIR}/rosa_sd2_delta_P0 \
+	 ${BIN_DIR}/rosa_sd2_delta_P1 \
+	 ${BIN_DIR}/rosa_sd2_delta_P2 \
+	 ${BIN_DIR}/rosa_sd2_delta_P3 \
+	 ${BIN_DIR}/rosa_sd2_delta_P4 \
+	 ${BIN_DIR}/rosa_sd2_delta_P5 \
 	 ${BIN_DIR}/create_pattern_files
 #	 ${BIN_DIR}/rosa_sd2\ 
 #	 ${BIN_DIR}/rosa_sd_load_only\
@@ -56,22 +62,46 @@ ${BIN_DIR}/rosa_sd2_delta: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_fun
 		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_sd_load_only: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
-	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DBENCHMARK_LOAD_ONLY \
-	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd_load_only \
+${BIN_DIR}/rosa_sd2_delta_P0: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1  -DBENCHMARK_INTERNAL_MATCH_ONLY\
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta_P0 \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_sd_create_only: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
-	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DBENCHMARK_CREATE_ONLY \
-	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd_create_only \
+${BIN_DIR}/rosa_sd2_delta_P1: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1  -DBENCHMARK_LOAD_ONLY\
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta_P1 \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
-${BIN_DIR}/rosa_sd_search_block_only: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
-	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DBENCHMARK_SEARCH_BLOCK_ONLY \
-	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd_search_block_only \
+${BIN_DIR}/rosa_sd2_delta_P2: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1  -DBENCHMARK_CREATE_ONLY\
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta_P2 \
 		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
+		-lsdsl -ldivsufsort -ldivsufsort64
+
+${BIN_DIR}/rosa_sd2_delta_P3: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1  -DBENCHMARK_SEARCH_BLOCK_ONLY\
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta_P3 \
+		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
+		-lsdsl -ldivsufsort -ldivsufsort64
+
+${BIN_DIR}/rosa_sd2_delta_P4: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1 -DNO_FINAL_MATCHING\
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta_P4 \
+		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
+		-lsdsl -ldivsufsort -ldivsufsort64
+
+${BIN_DIR}/rosa_sd2_delta_P5: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DLCP_WRAP=1\
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/rosa_sd2_delta_P5 \
+		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
 		-lsdsl -ldivsufsort -ldivsufsort64
 
 #${BIN_DIR}/rosa_bv: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o

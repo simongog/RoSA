@@ -331,6 +331,7 @@ int main(int argc, char* argv[])
 	int reconstruct_text = 0;
 	int factor_occ_freq = 0;
 	int output_factors = 0;
+	int add_factor_border = 0;
 
     int c;
     while (1) {
@@ -364,6 +365,7 @@ int main(int argc, char* argv[])
 			{"reconstruct_text", no_argument, &reconstruct_text, 1},
 			{"factor_occ_freq", no_argument, &factor_occ_freq, 1},
 			{"output_factors", no_argument, &output_factors, 1},
+			{"add_factor_border", no_argument, &add_factor_border, 1},
             {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -471,7 +473,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq or output_tikz or output_factors) {
+    if (output_mem_info or output_statistics or greedy or reconstruct_text or factor_occ_freq or output_tikz or output_factors or add_factor_border) {
         tIDX index;
         string int_idx_file_name = tIDX::get_int_idx_filename(input_file_name.c_str(), b, fac_dens, output_dir.c_str());
         if (util::load_from_file(index, int_idx_file_name.c_str())) {
@@ -499,6 +501,8 @@ int main(int argc, char* argv[])
 				index.output_factors();
 			}else if (output_tikz){
 				index.output_tikz();
+			}else if ( add_factor_border ){
+				util::store_to_file( index, int_idx_file_name.c_str() );
 			}
         } else {
             std::cerr << "ERROR: could not open file "<< int_idx_file_name << endl;
