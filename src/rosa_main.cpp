@@ -422,10 +422,12 @@ int main(int argc, char* argv[])
 
     util::verbose = verbose;
 
-    size_type input_size = (size_type)util::get_file_size(input_file_name.c_str());
-    if (b > input_size) {
-        std::cerr << "ERROR: input size ("<< input_size <<") is smaller than the block threshold b=" << b << endl;
-        return 1;
+    if ( 0 == fac_dens ){
+	    size_type input_size = (size_type)util::get_file_size(input_file_name.c_str());
+	    if (b > input_size) {
+		std::cerr << "ERROR: input size ("<< input_size <<") is smaller than the block threshold b=" << b << endl;
+		return 1;
+	    }
     }
 
 
