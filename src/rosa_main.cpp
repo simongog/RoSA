@@ -19,19 +19,31 @@
 #include "in_memory_index.hpp"
 typedef in_memory_index<csa_wt<wt_huff<>,64000,64000> > tIDX;
 #endif
-#ifdef FM_HUFF_RRR
-#define INDEX_SUF "fm_huff_rrr"
+
+#ifdef FM16_HUFF_RRR
+#define INDEX_SUF "fm16_huff_rrr"
 #include "in_memory_index.hpp"
 #include <sdsl/rrr_vector.hpp>
 typedef rrr_vector<63> tRRR;
-typedef in_memory_index<csa_wt<wt_huff<tRRR, tRRR::rank_1_type, tRRR::select_1_type, tRRR::select_0_type>,64000,64000> > tIDX;
+typedef in_memory_index<csa_wt<wt_huff<tRRR>,16,64000,text_order_sa_sampling<sd_vector<> > > > tIDX;
 #endif
+
+#ifdef FM64_HUFF_RRR
+#define INDEX_SUF "fm64_huff_rrr"
+#include "in_memory_index.hpp"
+#include <sdsl/rrr_vector.hpp>
+typedef rrr_vector<63> tRRR;
+typedef in_memory_index<csa_wt<wt_huff<tRRR>,64,64000,text_order_sa_sampling<sd_vector<> > > > tIDX;
+#endif
+
+
+
 #ifdef FM_HUFF_RRR127
 #define INDEX_SUF "fm_huff_rrr127"
 #include "in_memory_index.hpp"
 #include <sdsl/rrr_vector.hpp>
 typedef rrr_vector<127> tRRR;
-typedef in_memory_index<csa_wt<wt_huff<tRRR, tRRR::rank_1_type, tRRR::select_1_type, tRRR::select_0_type>,64000,64000> > tIDX;
+typedef in_memory_index<csa_wt<wt_huff<tRRR, tRRR::rank_1_type, tRRR::select_1_type, tRRR::select_0_type>,64000,64000, text_order_sa_sampling<sd_vector<>  > > > tIDX;
 #endif
 #ifdef FM_RL
 #define INDEX_SUF "fm_rlmn"

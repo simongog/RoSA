@@ -16,6 +16,8 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 	 ${BIN_DIR}/rosa_sd2_delta_P3 \
 	 ${BIN_DIR}/rosa_sd2_delta_P4 \
 	 ${BIN_DIR}/rosa_sd2_delta_P5 \
+	 ${BIN_DIR}/fm16_huff_rrr \
+	 ${BIN_DIR}/fm64_huff_rrr \
 	 ${BIN_DIR}/create_pattern_files
 #	 ${BIN_DIR}/rosa_sd2\ 
 #	 ${BIN_DIR}/rosa_sd_load_only\
@@ -26,7 +28,6 @@ all: ${BIN_DIR}/rosa_helping_structures.o \
 #	 ${BIN_DIR}/rosa_rrr63 \
 #	 ${BIN_DIR}/rosa_gap \
 #	 ${BIN_DIR}/fm_huff \
-#	 ${BIN_DIR}/fm_huff_rrr \
 #	 ${BIN_DIR}/fm_huff_rrr127 \
 #	 ${BIN_DIR}/fm_rlmn
 
@@ -134,11 +135,20 @@ ${BIN_DIR}/rosa_sd2_delta_P5: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_
 #		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
 #		-lsdsl -ldivsufsort -ldivsufsort64
 #
-#${BIN_DIR}/fm_huff_rrr: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
-#	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DFM_HUFF_RRR \
-#	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/fm_huff_rrr \
-#		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
-#		-lsdsl -ldivsufsort -ldivsufsort64
+${BIN_DIR}/fm16_huff_rrr: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DFM16_HUFF_RRR \
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/fm16_huff_rrr \
+		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
+		-lsdsl -ldivsufsort -ldivsufsort64
+
+${BIN_DIR}/fm64_huff_rrr: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/bu_interval.o ${SRC_DIR}/rosa_main.cpp
+	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DFM64_HUFF_RRR \
+	    ${SRC_DIR}/rosa_main.cpp -o ${BIN_DIR}/fm64_huff_rrr \
+		${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o ${BIN_DIR}/pattern_file.o \
+		${BIN_DIR}/bu_interval.o \
+		-lsdsl -ldivsufsort -ldivsufsort64
+
 #
 #${BIN_DIR}/fm_huff_rrr127: ${BIN_DIR}/pattern_file.o ${BIN_DIR}/rosa_helping_functions.o ${BIN_DIR}/rosa_helping_structures.o
 #	g++ ${CFLAGS} -I${INCLUDE_PATH} -L${LIB_PATH} -DFM_HUFF_RRR127 \
