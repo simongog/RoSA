@@ -1,0 +1,103 @@
+400L-95262:RoSA sgog$ ./bin/fm16_huff_rrr --input_file=web-4GB --benchmark_loc --benchmark_ext --pattern_file=pattern/web-4GB.40.1000.0.8.12.pattern 
+run benchmark
+pattern_file_name pattern/web-4GB.40.1000.0.8.12.pattern
+# index_suf = fm16_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-4GB.40.1000.0.8.12.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-4GB.fm16_huff_rrr.int_idx
+# file_name = web-4GB
+# b = 4096
+# fac_dens = 1
+# index_load_rtime = 9135.37
+# index_load_utime = 194.743
+# full_queries = 1000
+# cnt4 = 9355
+# cnt5 = 1000
+# rtime_full = 294.063
+# utime_full = 232.548
+# stime_full = 15.077
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24969e+08
+
+400L-95262:RoSA sgog$ ./bin/fm16_huff_rrr --input_file=web-4GB --benchmark_loc --benchmark_ext --pattern_file=pattern/web-4GB.40.1000.0.75.125.pattern 
+run benchmark
+pattern_file_name pattern/web-4GB.40.1000.0.75.125.pattern
+# index_suf = fm16_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-4GB.40.1000.0.75.125.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-4GB.fm16_huff_rrr.int_idx
+# file_name = web-4GB
+# b = 4096
+# fac_dens = 1
+# index_load_rtime = 9189.84
+# index_load_utime = 210.032
+# full_queries = 1000
+# cnt4 = 96133
+# cnt5 = 1000
+# rtime_full = 868.996
+# utime_full = 771.386
+# stime_full = 26.393
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24969e+08
+
+400L-95262:RoSA sgog$ ./bin/fm64_huff_rrr --input_file=web-4GB --benchmark_loc --benchmark_ext --pattern_file=pattern/web-4GB.40.1000.0.8.12.pattern 
+run benchmark
+pattern_file_name pattern/web-4GB.40.1000.0.8.12.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-4GB.40.1000.0.8.12.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-4GB.fm64_huff_rrr.int_idx
+# file_name = web-4GB
+# b = 4096
+# fac_dens = 1
+# index_load_rtime = 525.22
+# index_load_utime = 35.306
+# full_queries = 1000
+# cnt4 = 9355
+# cnt5 = 1000
+# rtime_full = 564.344
+# utime_full = 563.125
+# stime_full = 0.826
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24969e+08
+
+400L-95262:RoSA sgog$ ./bin/fm64_huff_rrr --input_file=web-4GB --benchmark_loc --benchmark_ext --pattern_file=pattern/web-4GB.40.1000.0.75.125.pattern 
+run benchmark
+pattern_file_name pattern/web-4GB.40.1000.0.75.125.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-4GB.40.1000.0.75.125.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-4GB.fm64_huff_rrr.int_idx
+# file_name = web-4GB
+# b = 4096
+# fac_dens = 1
+# index_load_rtime = 522.389
+# index_load_utime = 35.956
+# full_queries = 1000
+# cnt4 = 96133
+# cnt5 = 1000
+# rtime_full = 3257.5
+# utime_full = 3256.47
+# stime_full = 1.039
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.2497e+08
