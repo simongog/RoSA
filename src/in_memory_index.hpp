@@ -208,6 +208,9 @@ class in_memory_index
 				res.resize(rb+1-lb);
 				for(size_type i=lb; i<=rb; ++i){
 					res[i-lb] = m_csa[i];
+#ifdef OUTPUT_STATS
+                m_count_disk_access += m_csa.sa_sample_dens; // a potential disk access for every step
+#endif
 				}
 			}
             return rb-lb+1;
