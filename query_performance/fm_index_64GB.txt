@@ -1,0 +1,115 @@
+[10:45:08] ~/CPM2013/RoSA (->RoSALZ)
+sgog@400L-95262 RoSA :/>./bin/fm64_huff_rrr --fac_dens=16 --input_file=web-64GB --benchmark_ext --pattern_file=pattern/web-64GB.40.1000.0.8.12.pattern 
+run benchmark
+pattern_file_name pattern/web-64GB.40.1000.0.8.12.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-64GB.40.1000.0.8.12.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-64GB.fm64_huff_rrr.int_idx
+# file_name = web-64GB
+# b = 4096
+# fac_dens = 16
+# index_load_rtime = 186609
+# index_load_utime = 1069.31
+# full_queries = 1000
+# cnt4 = 9499
+# cnt5 = 1000
+# rtime_full = 120310
+# utime_full = 704.979
+# stime_full = 10256.2
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.2497e+08
+[11:00:12] ~/CPM2013/RoSA (->RoSALZ)
+sgog@400L-95262 RoSA :/>./bin/fm64_huff_rrr --fac_dens=16 --input_file=web-64GB --benchmark_ext --pattern_file=pattern/web-64GB.40.1000.0.75.125.pattern 
+run benchmark
+pattern_file_name pattern/web-64GB.40.1000.0.75.125.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-64GB.40.1000.0.75.125.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-64GB.fm64_huff_rrr.int_idx
+# file_name = web-64GB
+# b = 4096
+# fac_dens = 16
+# index_load_rtime = 184330
+# index_load_utime = 1101.47
+# full_queries = 1000
+# cnt4 = 95550
+# cnt5 = 1000
+# rtime_full = 116892
+# utime_full = 809.402
+# stime_full = 12339.7
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24968e+08
+[11:18:02] ~/CPM2013/RoSA (->RoSALZ)
+sgog@400L-95262 RoSA :/>./bin/fm64_huff_rrr --fac_dens=16 --input_file=web-64GB --benchmark_ext --benchmark_loc --pattern_file=pattern/web-64GB.40.1000.0.75.125.pattern 
+run benchmark
+pattern_file_name pattern/web-64GB.40.1000.0.75.125.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-64GB.40.1000.0.75.125.pattern
+call generate_index 
+factorization is not stored in 
+^C
+[11:22:05] ~/CPM2013/RoSA (->RoSALZ)
+sgog@400L-95262 RoSA :/>./bin/fm64_huff_rrr --fac_dens=16 --input_file=web-64GB --benchmark_ext --benchmark_loc --pattern_file=pattern/web-64GB.40.1000.0.8.12.pattern 
+run benchmark
+pattern_file_name pattern/web-64GB.40.1000.0.8.12.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-64GB.40.1000.0.8.12.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-64GB.fm64_huff_rrr.int_idx
+# file_name = web-64GB
+# b = 4096
+# fac_dens = 16
+# index_load_rtime = 187364
+# index_load_utime = 1083.46
+# full_queries = 1000
+# cnt4 = 9499
+# cnt5 = 1000
+# rtime_full = 268468
+# utime_full = 2792.72
+# stime_full = 28768.1
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24969e+08
+
+[11:44:48] ~/CPM2013/RoSA (->RoSALZ)
+sgog@400L-95262 RoSA :/>./bin/fm64_huff_rrr --fac_dens=16 --input_file=web-64GB --benchmark_ext --benchmark_loc --pattern_file=pattern/web-64GB.40.1000.0.75.125.pattern 
+run benchmark
+pattern_file_name pattern/web-64GB.40.1000.0.75.125.pattern
+# index_suf = fm64_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-64GB.40.1000.0.75.125.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-64GB.fm64_huff_rrr.int_idx
+# file_name = web-64GB
+# b = 4096
+# fac_dens = 16
+# index_load_rtime = 187159
+# index_load_utime = 1072.4
+# full_queries = 1000
+# cnt4 = 95550
+# cnt5 = 1000
+# rtime_full = 644663
+# utime_full = 10680.3
+# stime_full = 75750.6
+# disk_access_per_query = 6155.2
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24969e+08

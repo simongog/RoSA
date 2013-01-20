@@ -1,0 +1,25 @@
+400L-95262:RoSA sgog$ ./bin/fm16_huff_rrr --input_file=web-4GB --benchmark_ext --pattern_file=pattern/web-4GB.40.1000.0.8.12.pattern 
+run benchmark
+pattern_file_name pattern/web-4GB.40.1000.0.8.12.pattern
+# index_suf = fm16_huff_rrr
+# repeated_in_memory_search = 0
+# pattern_file_name = pattern/web-4GB.40.1000.0.8.12.pattern
+call generate_index 
+factorization is not stored in 
+load index from file .//web-4GB.fm16_huff_rrr.int_idx
+# file_name = web-4GB
+# b = 4096
+# fac_dens = 1
+# index_load_rtime = 8781.95
+# index_load_utime = 164.871
+# full_queries = 1000
+# cnt4 = 9355
+# cnt5 = 1000
+# rtime_full = 104.834
+# utime_full = 103.813
+# stime_full = 0.418
+# disk_access_per_query = 40
+# gap_disk_access_per_query = 1.40735e+11
+# avg_int_match_depth = 1.40735e+11
+# ratio_of_int_matched_queries = 1
+# block_length_per_ext_query = 9.24968e+08
