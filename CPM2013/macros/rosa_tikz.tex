@@ -313,23 +313,23 @@
 \begin{tikzpicture}[remember picture]
 %	\begin{scope}[node distance=1.5ex,font=\tt]
 	\begin{scope}[text height=2ex, text depth=1ex]
-		\coordinate (facArray0) at (0,0);
-		\node[left=-1.5ex of facArray0] {$FZ =\ $\phantom{,}};
-		\foreach \x [count=\i from 0, count=\j from 1] in \facArray{
-			\node[node distance=0ex, right, right=of facArray\i,inner xsep=0] (facArray\j) { %
-				\ifnum \i > 0
-					,
-				\else
-					\phantom{,}	
-				\fi	
-				\x %
-			};
-		}
-
-
+%		\coordinate (facArray0) at (0,0);
+%		\node[left=-1.5ex of facArray0] {$FZ =\ $\phantom{,}};
+%		\foreach \x [count=\i from 0, count=\j from 1] in \facArray{
+%			\node[node distance=0ex, right, right=of facArray\i,inner xsep=0] (facArray\j) { %
+%				\ifnum \i > 0
+%					,
+%				\else
+%					\phantom{,}	
+%				\fi	
+%				\x %
+%			};
+%		}
 		\setcounter{minPosCnt}{0}
 		\coordinate (FwdText0) at (0,-2);
-		\node[left=-1.5ex of FwdText0] {$\TEXT =\ $\phantom{,}};
+		\coordinate (Factor0) at (0,-1.2);
+		\node[left=-1.5ex of FwdText0] {Expansion \quad\phantom{,}};
+		\node[left=-1.5ex of Factor0] {Factors $\TEXT'$ \quad\phantom{,}};
 		\foreach \x [count=\i from 0, count=\j from 1] in \facLen{
 			\pgfmathparse{\theminPosCnt}\let\start\pgfmathresult
 			\pgfmathparse{int(\theminPosCnt+1)}\let\startpp\pgfmathresult
@@ -339,7 +339,7 @@
 				\foreach \y in{\start,...,\end}{ %
 					\pgfmathparse{{\FwdText}[\y]}\let\FwdLetter\pgfmathresult%
 	%				\node[text height=2ex, text depth=1ex, node distance=0, right=of FwdText\i] (FwdText\j){\FwdLetter};
-					\FwdLetter%
+					{\tt \FwdLetter}%
 				}%
 			};
 			\draw[gray] 
@@ -348,7 +348,8 @@
 				    -- ($(FwdText\j.north east)-(1pt,0)$)
 				    -- ($(FwdText\j.north east)-(1pt,2pt)$);
 			\pgfmathparse{{\facArray}[\i]}\let\bwdFactor\pgfmathresult
-			\node[node distance=1pt, above=of FwdText\j,color=gray,font=\small, inner sep=1pt]{\bwdFactor};
+			\node[node distance=1pt, right=of Factor\i,color=gray,font=\small, inner sep=1pt] (Factor\j) {\bwdFactor};
+			\draw[color=gray]  ($(Factor\j.south)+(0,4pt)$) -- (FwdText\j.north);  
 			\addtocounter{minPosCnt}{\x}
 		}
 	\end{scope}
