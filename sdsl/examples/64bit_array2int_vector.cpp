@@ -13,10 +13,6 @@ using namespace sdsl;
 using namespace std;
 
 int main(int argc, char *argv[]){
-	if ( argc < 2 ){
-		cout<<"Usage: "<<argv[0]<<" input_file [output_file] [ouput_bit_width]"<<endl;
-		return 1;
-	}
 	size_t x = util::get_file_size(argv[1]);
 	const int BPI=8;
 	cout<<"file size in bytes = "<<x<<endl;
@@ -33,39 +29,25 @@ int main(int argc, char *argv[]){
 	const size_t BUF_SIZE = 6400000; // BUF_SIZE has to be a multiple of 64
 	uint64_t *buf = (uint64_t*)malloc(BUF_SIZE*BPI);
 	uint64_t max=0;
-	uint8_t width=0;
-	if ( argc < 3 ){
-		size_t frac=0, old_frac=0;
-		for (size_t i=0, len=BUF_SIZE*BPI; i<x; i+=len){
-	//		cout<<i<<endl;
-			frac = 100*i/x;
-			if(frac>old_frac){ cout<<"."; if(frac%10==0) cout<<frac; }
-			old_frac=frac;
-			len = BUF_SIZE*BPI;
-			if ( i+len > x ){
-				len = x-i;
-			}
-			fread((char*)buf, 1, len, f);
-			for (size_t j=0; j<len/BPI; ++j){
-				if ( buf[j] > max )
-					max = buf[j];
-	//			cout<<" "<<buf[j]<<endl;
-			}
+	for (size_t i=0, len=BUF_SIZE*BPI; i<x; i+=len){
+		len = BUF_SIZE*BPI;
+		if ( i+len > x ){
+			len = x-i;
 		}
-		cout<<"Max value: "<<max<<endl;
-		width = bit_magic::l1BP(max)+1;
-	}else{
-		width = atoi(argv[3]);
+		fread((char*)buf, 1, len, f);
+		for (size_t j=0; j<len/BPI; ++j){
+			if ( buf[j] > max )
+				max = buf[j];
+//			cout<<" "<<buf[j]<<endl;
+		}
 	}
-
+	cout<<"Max value: "<<max<<endl;
+	uint8_t width = bit_magic::l1BP(max)+1;
 	cout<<"width="<<(int)width<<endl;
 
 //  (2) scan file, bit-compress values and write to outfile
 	rewind(f); // reset file pointer
 	string ofile = string(argv[1])+".int_vector";
-	if ( argc>2 ){
-		ofile = string(argv[2]);
-	}
 	FILE *of = fopen(ofile.c_str(),"wb"); // open output file
 	if ( of == NULL ){
 		cout<<"ERROR: could not open output file "<<argv[1]<<endl;
@@ -89,12 +71,11 @@ int main(int argc, char *argv[]){
 	free(buf);
 	fclose(f);
 	fclose(of);
+	util::load_from_file(v, ofile.c_str());
+	cout<<"v.size()="<<v.size()<<endl;
+	cout<<"v[0]="<<v[0]<<endl;
 	const bool do_check = false;
 	if ( do_check){
-		util::load_from_file(v, ofile.c_str());
-		cout<<"v.size()="<<v.size()<<endl;
-		cout<<"v[0]="<<v[0]<<endl;
-
 		int_vector<> check;
 		util::load_vector_from_file(check, argv[1], BPI);
 		if ( check.size() != v.size() ){

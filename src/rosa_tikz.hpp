@@ -1,5 +1,5 @@
 #ifndef ROSA_TIKZ
-#define ROSA_TIRKZ
+#define ROSA_TIKZ
 
 #include <vector>
 #include <utility> // for pair

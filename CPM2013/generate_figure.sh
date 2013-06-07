@@ -36,5 +36,5 @@ pdflatex ${tmp_tex_file}
 mv ${tmp_pdf_file} ..
 cd ..
 
-rm ${tmp_dir}/*
+#rm ${tmp_dir}/*
 rm ${basename}_rev
