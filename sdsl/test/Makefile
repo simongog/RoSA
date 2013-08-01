@@ -1,5 +1,5 @@
 CC=g++
-CC_FLAGS=-Wall -g -O3 -I/Users/sgog/RoSA/include -L/Users/sgog/RoSA/lib -DNDEBUG -funroll-loops 
+CC_FLAGS=-Wall -g -O3 -I/Users/sgog/RoSADev/include -L/Users/sgog/RoSADev/lib -DNDEBUG -funroll-loops 
 CCLIB=-lsdsl -ldivsufsort -ldivsufsort64 -lgtest 
 SOURCES=$(wildcard *Test.cpp)
 EXECS=$(SOURCES:.cpp=)
