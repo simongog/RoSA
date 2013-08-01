@@ -1,0 +1,8 @@
+Let RoSA_ROOT be the project's root directory /
+
+(1) cd into RoSA_ROOT/sdsl directory
+(2) call ./install.sh RoSA_ROOT
+(3) cd ..
+(4) make
+
+
